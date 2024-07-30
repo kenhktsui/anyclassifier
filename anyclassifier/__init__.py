@@ -1,1 +1,1 @@
-from anyclassifier.main import train_anyclassifier
+from anyclassifier.train_any import train_anyclassifier
