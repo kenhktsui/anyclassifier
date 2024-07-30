@@ -7,7 +7,7 @@ from anyclassifier.annotation.annotator import LlamaCppAnnotator
 from anyclassifier.fasttext_wrapper import FastTextConfig, FastTextTrainer, FastTextForSequenceClassification, FastTextTrainingArguments
 
 
-def build_anyclassifier(
+def train_anyclassifier(
     instruction: str,
     annotator_model_path: str,
     labels: List[Label],

@@ -9,7 +9,8 @@ REQUIRED_PKGS = [
     "datasets>=2.20.0",
     "setfit>=1.0.3",
     "huggingface_hub>=0.23.5",
-    "llama_cpp_python==0.2.84"
+    "llama_cpp_python==0.2.84",
+    "fasttext==0.9.3"
 ]
 
 setup(
