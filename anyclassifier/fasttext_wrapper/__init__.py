@@ -1,0 +1,8 @@
+from transformers import AutoConfig, AutoModelForSequenceClassification
+from anyclassifier.fasttext_wrapper.config import FastTextConfig
+from anyclassifier.fasttext_wrapper.model import FastTextForSequenceClassification
+from anyclassifier.fasttext_wrapper.trainer import FastTextTrainingArguments, FastTextTrainer
+
+
+AutoConfig.register("fasttext_wrapper", FastTextConfig)
+AutoModelForSequenceClassification.register(FastTextConfig, FastTextForSequenceClassification)

@@ -1,0 +1,1 @@
+from anyclassifier.main import train_anyclassifier
