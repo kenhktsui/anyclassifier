@@ -1,4 +1,4 @@
-![GitHub License](https://img.shields.io/github/license/kenhktsui/anyclassifier)
+![GitHub License](https://img.shields.io/github/license/kenhktsui/anyclassifier?)
 
 # AnyClassifier - One Line To Build Any Classifier Without Data
 Have you ever wanted to build a classifier without any labeled data? What it takes now is just a few lines 🤯.  
