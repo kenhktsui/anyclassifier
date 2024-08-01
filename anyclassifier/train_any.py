@@ -15,15 +15,17 @@ def train_anyclassifier(
     column_mapping: Dict[str, str] = {"text": "text"},
     model_type: Literal["setfit", "fasttext", "transformers"] = "setfit",
     base_model: Optional[str] = "sentence-transformers/paraphrase-mpnet-base-v2",
+    num_epochs: Optional[int] = 5,
+    batch_size: Optional[int] = 16,
     test_size: float = 0.3,
     n_record_to_label: int = 100,
     push_dataset_to_hub: bool = False,
     dataset_repo_id: Optional[str] = None,
-    is_dataset_private: Optional[bool] = True
+    is_dataset_private: Optional[bool] = True,
     ) -> Union[FastTextTrainer, SetFitTrainer]:
 
     if push_dataset_to_hub:
-        interpreter_login()
+        interpreter_login(new_session=False)
         assert dataset_repo_id is not None, "dataset_repo_id must be provided when push_dataset_to_hub is True."
 
     # labeling dataset
@@ -43,7 +45,7 @@ def train_anyclassifier(
     if model_type == "fasttext":
         config = FastTextConfig()
         model = FastTextForSequenceClassification(config)
-        args = FastTextTrainingArguments("fasttext_model")
+        args = FastTextTrainingArguments("fasttext_model", epoch=num_epochs)
         trainer = FastTextTrainer(
             model=model,
             args=args,
@@ -66,8 +68,8 @@ def train_anyclassifier(
 
         args = TrainingArguments(
             output_dir="setfit",
-            batch_size=16,
-            num_epochs=1,
+            batch_size=batch_size,
+            num_epochs=num_epochs,
             evaluation_strategy="epoch",
             save_strategy="epoch",
             load_best_model_at_end=True,

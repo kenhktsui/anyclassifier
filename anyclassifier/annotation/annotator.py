@@ -57,7 +57,7 @@ class LlamaCppAnnotator(AnnotatorBase):
         selected_dataset = dataset.select(range(n_record))
 
         label_list = []
-        for d in tqdm(selected_dataset):
+        for d in tqdm(selected_dataset, desc="Annotating dataset"):
             llm_output = self.annotate(d[text_col])
             label = self.parse_output(llm_output)
             label_list.append(label)
