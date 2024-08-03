@@ -1,11 +1,17 @@
+import sys
 from abc import abstractmethod, ABCMeta
 from typing import Union, Optional
 import re
+from collections import Counter
 from tqdm import tqdm
+import logging
 from llama_cpp import Llama
 from datasets import Dataset  # it is import to load llama_cpp first before datasets to prevent error like https://github.com/abetlen/llama-cpp-python/issues/806
 from huggingface_hub import hf_hub_download
 from anyclassifier.annotation.prompt import AnnotationPrompt
+
+
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
 class AnnotatorBase(metaclass=ABCMeta):
@@ -70,6 +76,9 @@ class LlamaCppAnnotator(AnnotatorBase):
 
         selected_dataset = selected_dataset.add_column("label", label_list)
         selected_dataset = selected_dataset.filter(lambda x: x.get("label") is not None)
+        logging.info(f"""Count of labels
+{Counter(selected_dataset["label"]).most_common(len(self._prompt.label_definition))}        
+        """)
         return selected_dataset
 
 

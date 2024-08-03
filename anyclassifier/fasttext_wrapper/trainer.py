@@ -2,11 +2,11 @@ import os
 from dataclasses import dataclass, asdict
 import warnings
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Union, Callable, Any
 import fasttext
 from datasets import Dataset
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import precision_score, recall_score
+import evaluate
 from setfit.trainer import ColumnMappingMixin
 from anyclassifier.fasttext_wrapper.config import FastTextConfig
 from anyclassifier.fasttext_wrapper.model import FastTextForSequenceClassification
@@ -54,6 +54,13 @@ class FastTextTrainer(ColumnMappingMixin):
             The training dataset.
         eval_dataset (`Dataset`, *optional*):
             The evaluation dataset.
+        metric (`str` or `Callable`, *optional*, defaults to `"accuracy"`):
+            The metric to use for evaluation. If a string is provided, we treat it as the metric
+            name and load it with default settings. If a callable is provided, it must take two arguments
+            (`y_pred`, `y_test`) and return a dictionary with metric keys to values.
+        metric_kwargs (`Dict[str, Any]`, *optional*):
+            Keyword arguments passed to the evaluation function if `metric` is an evaluation string like "f1".
+            For example useful for providing an averaging strategy for computing f1 in a multi-label setting.
         column_mapping (`Dict[str, str]`, *optional*):
             A mapping from the column names in the dataset to the column names expected by the model.
             The expected format is a dictionary with the following format:
@@ -66,6 +73,8 @@ class FastTextTrainer(ColumnMappingMixin):
         args: FastTextConfig,
         train_dataset: Optional["Dataset"] = None,
         eval_dataset: Optional["Dataset"] = None,
+        metric: Union[str, Callable[["Dataset", "Dataset"], Dict[str, float]]] = "accuracy",
+        metric_kwargs: Optional[Dict[str, Any]] = None,
         column_mapping: Optional[Dict[str, str]] = None,
     ) -> None:
         if args is not None and not isinstance(args, FastTextTrainingArguments):
@@ -73,6 +82,8 @@ class FastTextTrainer(ColumnMappingMixin):
         self.training_args = asdict(args)
         self.output_dir = self.training_args.pop("output_dir")
         self.data_txt_path = self.training_args.pop("data_txt_path")
+        self.metric = metric
+        self.metric_kwargs = metric_kwargs
         self.column_mapping = column_mapping
         if train_dataset:
             self._validate_column_mapping(train_dataset)
@@ -165,10 +176,16 @@ class FastTextTrainer(ColumnMappingMixin):
         le.fit(label + label_pred)
         label = le.transform(label)
         label_pred = le.transform(label_pred)
-        return {
-            "precision": precision_score(label, label_pred, average="micro"),
-            "recall": recall_score(label, label_pred, average="micro")
-        }
+
+        metric_kwargs = self.metric_kwargs or {}
+        if isinstance(self.metric, str):
+            metric_fn = evaluate.load(self.metric)
+            results = metric_fn.compute(predictions=y_pred, references=y_test, **metric_kwargs)
+        elif callable(self.metric):
+            results = self.metric(y_pred, y_test, **metric_kwargs)
+        else:
+            raise ValueError("metric must be a string or a callable")
+        return {"metric": results}
 
     def push_to_hub(self, repo_id: str, **kwargs) -> str:
         """Upload model checkpoint to the Hub using `huggingface_hub`.

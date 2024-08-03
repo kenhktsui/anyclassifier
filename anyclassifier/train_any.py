@@ -1,4 +1,6 @@
-from typing import List, Dict, Union, Literal, Optional
+import sys
+from typing import List, Dict, Union, Literal, Optional, Callable, Any
+import logging
 from datasets import Dataset
 from huggingface_hub import interpreter_login
 from setfit import SetFitModel, TrainingArguments, Trainer as SetFitTrainer
@@ -7,6 +9,9 @@ from anyclassifier.annotation.annotator import LlamaCppAnnotator
 from anyclassifier.fasttext_wrapper import (
     FastTextConfig, FastTextTrainer, FastTextForSequenceClassification, FastTextTrainingArguments
 )
+
+
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
 def train_anyclassifier(
@@ -22,6 +27,8 @@ def train_anyclassifier(
     batch_size: Optional[int] = 16,
     n_record_to_label: int = 100,
     test_size: float = 0.3,
+    metric: Union[str, Callable[["Dataset", "Dataset"], Dict[str, float]]] = "accuracy",
+    metric_kwargs: Optional[Dict[str, Any]] = None,
     push_dataset_to_hub: bool = False,
     dataset_repo_id: Optional[str] = None,
     is_dataset_private: Optional[bool] = True,
@@ -55,6 +62,13 @@ def train_anyclassifier(
             No of record for LLM to label
         test_size (`float`, *optional*):
             Proportion of labeled data to evaluation
+        metric (`str` or `Callable`, *optional*, defaults to `"accuracy"`):
+            The metric to use for evaluation. If a string is provided, we treat it as the metric
+            name and load it with default settings. If a callable is provided, it must take two arguments
+            (`y_pred`, `y_test`) and return a dictionary with metric keys to values.
+        metric_kwargs (`Dict[str, Any]`, *optional*):
+            Keyword arguments passed to the evaluation function if `metric` is an evaluation string like "f1".
+            For example useful for providing an averaging strategy for computing f1 in a multi-label setting.
         push_dataset_to_hub (`bool`, *optional*):
             Whether to push dataset to huggingface hub for reuse, highly recommended to do so.
         dataset_repo_id (`str`, *optional*):
@@ -92,13 +106,15 @@ def train_anyclassifier(
             args=args,
             train_dataset=label_dataset["train"],
             eval_dataset=label_dataset["test"],
+            metric=metric,
+            metric_kwargs=metric_kwargs,
             column_mapping={**column_mapping, "label": "label"},
         )
 
         # Train and evaluate
         trainer.train()
         metrics = trainer.evaluate(label_dataset["test"])
-        print(metrics)
+        logging.info(metrics)
         return trainer
 
     elif model_type == "setfit":
@@ -120,14 +136,15 @@ def train_anyclassifier(
             args=args,
             train_dataset=label_dataset["train"],
             eval_dataset=label_dataset["test"],
-            metric="accuracy",
+            metric=metric,
+            metric_kwargs=metric_kwargs,
             column_mapping={**column_mapping, "label": "label"},
         )
 
         # Train and evaluate
         trainer.train()
         metrics = trainer.evaluate(label_dataset["test"])
-        print(metrics)
+        logging.info(metrics)
         return trainer
     else:
         raise NotImplementedError("other approach is not implemented yet")
