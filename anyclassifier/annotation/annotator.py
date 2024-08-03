@@ -51,9 +51,15 @@ class LlamaCppAnnotator(AnnotatorBase):
         return output["choices"][0]["message"]["content"]
 
     def annotate_dataset(self,
-                         dataset: Union[Dataset],
-                         text_col: str = "text",
-                         n_record: int = 1000) -> Dataset:
+        dataset: Union[Dataset],
+        text_col: str = "text",
+        n_record: int = 1000,
+        shuffle: bool = True
+    ) -> Dataset:
+        # shuffle the data to randomise potential bias in data collection process
+        if shuffle:
+            dataset = dataset.shuffle(10000)
+
         selected_dataset = dataset.select(range(n_record))
 
         label_list = []
