@@ -1,9 +1,9 @@
-from typing import Any, Dict
+from typing import Any, Dict, Set, Optional, Union
 from transformers import PretrainedConfig
 
 
 class FastTextConfig(PretrainedConfig):
-    model_type = "fasttext_wrapper"
+    model_type = "fasttext"
 
     def __init__(
         self,
@@ -15,6 +15,8 @@ class FastTextConfig(PretrainedConfig):
         word_ngrams: int = 1,
         bucket: int = 2000000,
         pretrained_vectors: str = "",
+        label2id: Optional[Dict[str, int]] = None,
+        id2label: Optional[Dict[int, str]] = None,
     ):
         self.dim = dim
         self.ws = ws
@@ -24,9 +26,13 @@ class FastTextConfig(PretrainedConfig):
         self.word_ngrams = word_ngrams
         self.bucket = bucket
         self.pretrained_vectors = pretrained_vectors
-        super().__init__()
+        self.label2id = label2id
+        self.id2label = id2label
+        if self.id2label is not None:
+            # json key is always str but id2label key is always int. Conversion is necessary.
+            self.id2label = {int(k): v for k, v in self.id2label.items()}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_fasttext_args(self) -> Dict[str, Any]:
         return {
             "dim": self.dim,
             "ws": self.ws,
@@ -37,3 +43,20 @@ class FastTextConfig(PretrainedConfig):
             "bucket": self.bucket,
             "pretrainedVectors": self.pretrained_vectors
         }
+
+    def to_dict(self, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
+        output = {
+            "dim": self.dim,
+            "ws": self.ws,
+            "min_count": self.min_count,
+            "min_n": self.min_n,
+            "max_n": self.max_n,
+            "word_ngrams": self.word_ngrams,
+            "bucket": self.bucket,
+            "pretrained_vectors": self.pretrained_vectors,
+            "label2id": self.label2id,
+            "id2label": self.id2label
+        }
+        if exclude is not None:
+            return {k: v for k, v in output.items() if k not in exclude}
+        return output

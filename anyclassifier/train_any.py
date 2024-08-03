@@ -43,7 +43,9 @@ def train_anyclassifier(
 
     # training
     if model_type == "fasttext":
-        config = FastTextConfig()
+        id2label = {i: l.name for i, l in enumerate(labels)}
+        label2id = {label: idx for idx, label in id2label.items()}
+        config = FastTextConfig(id2label=id2label, label2id=label2id)
         model = FastTextForSequenceClassification(config)
         args = FastTextTrainingArguments("fasttext_model", epoch=num_epochs)
         trainer = FastTextTrainer(

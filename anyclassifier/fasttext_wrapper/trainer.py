@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict, Optional
 import fasttext
 from datasets import Dataset
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import precision_score, recall_score
 from setfit.trainer import ColumnMappingMixin
 from anyclassifier.fasttext_wrapper.config import FastTextConfig
 from anyclassifier.fasttext_wrapper.model import FastTextForSequenceClassification
@@ -41,7 +43,7 @@ class FastTextTrainingArguments:
 
 
 class FastTextTrainer(ColumnMappingMixin):
-    """Trainer to train a SetFit model.
+    """Trainer to train a FastText model.
 
     Args:
         model (`FastTextForSequenceClassification`):
@@ -93,16 +95,10 @@ class FastTextTrainer(ColumnMappingMixin):
             for d in dataset:
                 text = d[self.column_mapping["text"]]
                 label = d[self.column_mapping["label"]]
-                f.write(f"__label__{label} {replace_newlines(text)}")
+                label_idx = self.model.config.label2id[label]
+                f.write(f"__label__{label_idx} {replace_newlines(text)}")
                 f.write("\n")
         return txt_path
-
-    @staticmethod
-    def print_results(N, p, r, header=""):
-        print(header)
-        print("N\t" + str(N))
-        print("P@{}\t{:.3f}".format(1, p))
-        print("R@{}\t{:.3f}".format(1, r))
 
     def train(
         self,
@@ -133,26 +129,23 @@ class FastTextTrainer(ColumnMappingMixin):
         train_dataset_path = self._convert_dataset_to_fasttext_data(self.train_dataset, "train.txt")
         model = fasttext.train_supervised(
             input=train_dataset_path,
-            **self.model.config.to_dict(),
+            **self.model.config.to_fasttext_args(),
             **self.training_args
         )
-        self.model.model = model
-        self.print_results(*self.model.model.test(train_dataset_path), "train metrics")
-        os.remove(train_dataset_path)
+        self.model._model = model
+        self.evaluate(self.train_dataset)
 
         if self.eval_dataset is not None:
-            eval_dataset_path = self._convert_dataset_to_fasttext_data(self.train_dataset, "eval.txt")
-            self.print_results(*self.model.model.test(eval_dataset_path), "test metrics")
-            os.remove(eval_dataset_path)
+            self.evaluate(self.eval_dataset)
 
         self.model.save_pretrained(self.output_dir)
 
-    def evaluate(self, dataset: Optional[Dataset] = None) -> Dict[str, float]:
+    def evaluate(self, dataset: Dataset) -> Dict[str, float]:
         """
         Computes the metrics for a given classifier.
 
         Args:
-            dataset (`Dataset`, *optional*):
+            dataset (`Dataset`):
                 The dataset to compute the metrics on. If not provided, will use the evaluation dataset passed via
                 the `eval_dataset` argument at `Trainer` initialization.
 
@@ -162,13 +155,19 @@ class FastTextTrainer(ColumnMappingMixin):
         self._validate_column_mapping(dataset)
         if self.column_mapping is not None:
             dataset = self._apply_column_mapping(dataset, self.column_mapping)
-        dataset_path = self._convert_dataset_to_fasttext_data(dataset, "evaluate.txt")
-        n, precision, recall = self.model.model.test(dataset_path)
-        self.print_results(n, precision, recall, "")
-        os.remove(dataset_path)
+
+        print("***** Running evaluation *****")
+        dataset = dataset.map(lambda batch: {"label_pred": self.model.predict(batch["text"])}, batched=True)
+        label = dataset["label"]
+        label_pred = dataset["label_pred"]
+
+        le = LabelEncoder()
+        le.fit(label + label_pred)
+        label = le.transform(label)
+        label_pred = le.transform(label_pred)
         return {
-            "precision": precision,
-            "recall": recall
+            "precision": precision_score(label, label_pred, average="micro"),
+            "recall": recall_score(label, label_pred, average="micro")
         }
 
     def push_to_hub(self, repo_id: str, **kwargs) -> str:

@@ -4,5 +4,5 @@ from anyclassifier.fasttext_wrapper.model import FastTextForSequenceClassificati
 from anyclassifier.fasttext_wrapper.trainer import FastTextTrainingArguments, FastTextTrainer
 
 
-AutoConfig.register("fasttext_wrapper", FastTextConfig)
+AutoConfig.register("fasttext", FastTextConfig)
 AutoModelForSequenceClassification.register(FastTextConfig, FastTextForSequenceClassification)
