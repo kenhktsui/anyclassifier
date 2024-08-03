@@ -180,9 +180,9 @@ class FastTextTrainer(ColumnMappingMixin):
         metric_kwargs = self.metric_kwargs or {}
         if isinstance(self.metric, str):
             metric_fn = evaluate.load(self.metric)
-            results = metric_fn.compute(predictions=y_pred, references=y_test, **metric_kwargs)
+            results = metric_fn.compute(predictions=label_pred, references=label, **metric_kwargs)
         elif callable(self.metric):
-            results = self.metric(y_pred, y_test, **metric_kwargs)
+            results = self.metric(label_pred, label, **metric_kwargs)
         else:
             raise ValueError("metric must be a string or a callable")
         return {"metric": results}
