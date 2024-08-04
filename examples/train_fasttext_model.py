@@ -14,11 +14,11 @@ unlabeled_dataset = dataset["train"].remove_columns("label")
 
 trainer = train_anyclassifier(
     "Classify a text's sentiment.",
-    hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
     [
         Label(name='1', desc='positive sentiment'),
         Label(name='0', desc='negative sentiment')
     ],
+    hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
     unlabeled_dataset,
     column_mapping={"text": "text"},
     model_type="fasttext",

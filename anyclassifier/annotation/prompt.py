@@ -35,7 +35,7 @@ class AnnotationPrompt:
             [f"Example {i+1}.\nText: {fse.text}\nLabel: {fse.label}" for i, fse in enumerate(self.few_shot_examples)]
         )
         return f"""{self.task_description}
-Here are the label definitions:
+Here are the label names and description:
 {label_defn_str}
 
 Here is the text to be analyzed:

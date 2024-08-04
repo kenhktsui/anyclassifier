@@ -16,8 +16,8 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 def train_anyclassifier(
     instruction: str,
-    annotator_model_path: str,
     labels: List[Label],
+    annotator_model_path: str,
     unlabeled_dataset: Dataset,
     column_mapping: Dict[str, str] = {"text": "text"},
     model_type: Literal["setfit", "fasttext", "transformers"] = "setfit",
@@ -26,6 +26,7 @@ def train_anyclassifier(
     num_epochs: Optional[int] = 5,
     batch_size: Optional[int] = 16,
     n_record_to_label: int = 100,
+    max_length_for_labeling: int = 1500,
     test_size: float = 0.3,
     metric: Union[str, Callable[["Dataset", "Dataset"], Dict[str, float]]] = "accuracy",
     metric_kwargs: Optional[Dict[str, Any]] = None,
@@ -38,10 +39,10 @@ def train_anyclassifier(
     Args:
         instruction (`str`):
             The instruction to LLM annotator
-        annotator_model_path (`str`):
-            The LLM annotator model to be used by llama.cpp
         labels (`List[Label]`):
             The labels including name and desc you want to classify
+        annotator_model_path (`str`):
+            The path of LLM annotator model to be used by llama.cpp
         unlabeled_dataset ('Dataset'):
             The unlabeled dataset you want to label.
         column_mapping (`Dict[str, str]`, *optional*):
@@ -60,6 +61,11 @@ def train_anyclassifier(
             Batch size to train model
         n_record_to_label (`int`, *optional*):
             No of record for LLM to label
+        max_length_for_labeling (`int`, *optional*):
+            Max length on character level to avoid exceeding context length of LLM and faster annotation. In general,
+            how limiting truncating document affects the accuracy of annotation process depending on various
+            factors, like complexity of classification, location of key information. If the same topic is conveyed
+            throughout a document (e.g. sentiment analysis, domain classification), the impact is expected to be low.
         test_size (`float`, *optional*):
             Proportion of labeled data to evaluation
         metric (`str` or `Callable`, *optional*, defaults to `"accuracy"`):
@@ -87,7 +93,11 @@ def train_anyclassifier(
         few_shot_examples=few_shot_examples
     )
     annotator = LlamaCppAnnotator(prompt, annotator_model_path)
-    label_dataset = annotator.annotate_dataset(unlabeled_dataset, n_record=n_record_to_label)
+    label_dataset = annotator.annotate_dataset(
+        unlabeled_dataset,
+        n_record=n_record_to_label,
+        max_length_for_labeling=max_length_for_labeling
+    )
 
     label_dataset = label_dataset.train_test_split(test_size=test_size)
 

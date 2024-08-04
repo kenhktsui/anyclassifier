@@ -17,7 +17,7 @@ Together let's build more useful models.
 
 ## 🚀 Features
 - One line to build any classifier that you don't have data 🤯
-- Why one line? Because it can easily be used by other LLM as a function call, easily to be integrated with any **agentic flow**
+- Why one line? Not only it is easy to be used by Human but also it can easily be used by other LLM as a function call, easily to be integrated with any **agentic flow**
 - Smoothness integration with transformers, setfit, fasttext and datasets
   - [setfit](https://github.com/huggingface/setfit): for limited data (e.g. 100) 🤗
   - [fastText](https://github.com/facebookresearch/fastText): for blazingly fast inference (1000 docs/s) without GPU ⚡️
@@ -25,7 +25,10 @@ Together let's build more useful models.
 - Huggingface-like interface for fastText that supports push_to_hub, saving and loading (let's not forget this amazing model before transformers architecture).
 
 ## 🏁 QuickStart in Colab
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1LB8PUTT9wM1Qb2cY-6Dx-RNiqmyCvRr1?usp=sharing)
+| Dataset                       | Colab Link                                                                                                                                                          |
+|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| imdb sentiment classification | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1LB8PUTT9wM1Qb2cY-6Dx-RNiqmyCvRr1?usp=sharing) |
+
 
 ## 🔧 Installation
 It is using llama.cpp as backend, and build wheel can take a lot of time (10min+), as such, we also provide an instruction to install with pre-built wheel.
@@ -82,11 +85,11 @@ unlabeled_dataset  # a huggingface datasets.Dataset class can be from your local
 # Magic One Line!
 trainer = build_anyclassifier(
   "Classify a text's sentiment.",
-  hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),  # as you like
   [
     Label(name='1', desc='positive sentiment'),
     Label(name='0', desc='negative sentiment')
   ],
+  hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),  # as you like
   unlabeled_dataset,
   column_mapping={"text": "text"},
   model_type="setfit",  # can be set to fastText
@@ -137,13 +140,14 @@ label_dataset.push_to_hub('user_id/any_data')
 
 ```
 
-See examples:  
+See more examples:  
 
 | model_type | example                                  | resulting model                                                                  | dataset                                                                      |
 |------------|------------------------------------------|----------------------------------------------------------------------------------|------------------------------------------------------------------------------|
 | setfit     | [link](examples/train_setfit_model.py)   | [link](https://huggingface.co/kenhktsui/anyclassifier_setfit_demo)               | [link](https://huggingface.co/datasets/kenhktsui/anyclassifier_dataset_demo) |
 | fasttext   | [link](examples/train_fasttext_model.py) | [link](https://huggingface.co/kenhktsui/fasttext_test)(probably need more label) | [link](https://huggingface.co/datasets/kenhktsui/anyclassifier_dataset_demo) |
 
+Test accuracy on imdb with SetFit: 90.42%  
 
 ## 🗺️ Roadmap
 - High Quality Data:
