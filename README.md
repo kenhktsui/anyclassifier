@@ -1,6 +1,6 @@
 ![GitHub License](https://img.shields.io/github/license/kenhktsui/anyclassifier?)![PyPI - Downloads](https://img.shields.io/pypi/dm/anyclassifier?)![PyPI - Version](https://img.shields.io/pypi/v/anyclassifier?)
 
-# ∞🧙🏼‍♂️AnyClassifier - One Line To Build Any Classifier Without Data, And A Step Towards The First ML Engineer
+# ∞🧙🏼‍♂️AnyClassifier - One Line To Build Any Classifier Without Data, And A Step Towards The First AI ML Engineer
 ![image](assets/Traditional_ML_Cycle.png)
 
 ![image](assets/AnyClassifier.png)
