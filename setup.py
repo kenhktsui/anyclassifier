@@ -16,7 +16,7 @@ REQUIRED_PKGS = [
 
 setup(
     name="anyclassifier",
-    version="0.1.1",
+    version="0.1.2",
     description="One Line To Build Any Classifier Without Data",
     long_description=README_TEXT,
     long_description_content_type="text/markdown",
