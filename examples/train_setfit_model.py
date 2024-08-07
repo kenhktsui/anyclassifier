@@ -22,18 +22,22 @@ trainer = train_anyclassifier(
     unlabeled_dataset,
     column_mapping={"text": "text"},
     model_type="setfit",
+    n_record_to_label=20,
+    num_epochs=5,
     push_dataset_to_hub=True,
     is_dataset_private=True,
     dataset_repo_id=f"{HF_HANDLE}/test"
 )
 full_test_data = dataset["test"]
 
-print(trainer.evaluate(full_test_data))
+print(trainer.evaluate(full_test_data.shuffle(10000).select(range(100))))
 
 trainer.push_to_hub(f"{HF_HANDLE}/setfit_test", private=True)
 
 model = SetFitModel.from_pretrained(f"{HF_HANDLE}/setfit_test")
 # Run inference
-preds = model.predict(["i loved the spiderman movie!", "pineapple on pizza is the worst 🤮"])
+text = ["i loved the spiderman movie!", "pineapple on pizza is the worst 🤮"]
+preds = model.predict(text)
+print(text)
 print(preds)
 # ['1', '0']

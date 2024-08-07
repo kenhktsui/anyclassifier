@@ -12,7 +12,7 @@ As a machine learning engineer, one of the unavoidable but the most heavy liftin
 By leveraging LLM 🤖 annotation with permissive license, one can now label data at a better quality and at lightning speed ever.    
 This is inspired by some of the challenges I faced daily in work and doing open source - it is built for **machine learning engineer and software engineer**, by **machine learning engineer** 👨🏻‍💻.    
 By providing a higher level abstraction, this project's mission is to further **democratizes** AI to everyone, with **ONE LINE**.   
-The project is still experimental, but I found it worked in some of my use cases. Feedbacks welcome, and feel free to contribute. See [Future Roadmap](#future-roadmap).  
+The project is still experimental, but I found it worked in some of my use cases. Feedbacks welcome, and feel free to contribute. See [Roadmap](#-roadmap).  
 Together let's build more useful models.
 
 ## 🚀 Features
@@ -24,7 +24,21 @@ Together let's build more useful models.
   - [transformers](https://github.com/huggingface/transformers): for other usecase
 - Huggingface-like interface for fastText that supports push_to_hub, saving and loading (let's not forget this amazing model before transformers architecture).
 
+## 🏁 QuickStart in Apple Silicon - Train a model in 5 min!
+```shell
+# install (cp39 = python3.9, other valid values are cp310, cp311, cp312)
+wget https://github.com/abetlen/llama-cpp-python/releases/download/v0.2.84-metal/llama_cpp_python-0.2.84-cp39-cp39-macosx_11_0_arm64.whl
+pip install llama_cpp_python-0.2.84-cp39-cp39-macosx_11_0_arm64.whl
+rm llama_cpp_python-0.2.84-cp39-cp39-macosx_11_0_arm64.whl
+pip install anyclassifier
+# run
+cd examples
+python train_setfit_model.py
+
+```
+![image](assets/demo.gif)
 ## 🏁 QuickStart in Colab
+
 | Dataset                       | Colab Link                                                                                                                                                          |
 |-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | imdb sentiment classification | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1LB8PUTT9wM1Qb2cY-6Dx-RNiqmyCvRr1?usp=sharing) |
@@ -32,17 +46,20 @@ Together let's build more useful models.
 
 ## 🔧 Installation
 It is using llama.cpp as backend, and build wheel can take a lot of time (10min+), as such, we also provide an instruction to install with pre-built wheel.
+### Metal Backend (Apple's GPU) - cp39 = python3.9, other valid values are cp310, cp311, cp312
+```shell
+wget https://github.com/abetlen/llama-cpp-python/releases/download/v0.2.84-metal/llama_cpp_python-0.2.84-cp39-cp39-macosx_11_0_arm64.whl
+pip install llama_cpp_python-0.2.84-cp39-cp39-macosx_11_0_arm64.whl
+rm llama_cpp_python-0.2.84-cp39-cp39-macosx_11_0_arm64.whl
+pip install anyclassifier
+```
+
 ### Colab (T4) Prebuilt Wheel
 ```shell
 wget https://github.com/abetlen/llama-cpp-python/releases/download/v0.2.84-cu124/llama_cpp_python-0.2.84-cp310-cp310-linux_x86_64.whl
 pip install llama_cpp_python-0.2.84-cp310-cp310-linux_x86_64.whl
 rm llama_cpp_python-0.2.84-cp310-cp310-linux_x86_64.whl
 pip install anyclassifier
-```
- 
-### Metal Backend (Apple's GPU - so you don't have to deal with CUDA compatibility issue)
-```shell
-CMAKE_ARGS="-DGGML_CUDA=on" pip install anyclassifier
 ```
 
 ### CUDA Backend (Please read [llama-cpp-python](https://llama-cpp-python.readthedocs.io/en/latest/#installation))
