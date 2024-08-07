@@ -9,6 +9,7 @@ from anyclassifier.annotation.annotator import LlamaCppAnnotator
 from anyclassifier.fasttext_wrapper import (
     FastTextConfig, FastTextTrainer, FastTextForSequenceClassification, FastTextTrainingArguments
 )
+import torch
 
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -128,9 +129,17 @@ def train_anyclassifier(
         return trainer
 
     elif model_type == "setfit":
+        if torch.backends.mps.is_available():
+            device = 'mps'
+        elif torch.cuda.is_available():
+            device = 'cuda'
+        else:
+            device = 'cpu'
+
         model = SetFitModel.from_pretrained(
             base_model,
             labels=[l.name for l in labels],
+            device=device
         )
 
         args = TrainingArguments(
