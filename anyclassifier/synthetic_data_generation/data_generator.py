@@ -75,14 +75,14 @@ This approach ensures the diversity of synthetic data by design.
     SOURCE_TYPE_PROMPT = f"""I am building a document classifier to {{instruction}} with labels {{labels}}. Suggest {{n}} source type of information for efficient data acquisition.
 Output JSON array. Each item contains key "source_type"."""
 
-    EXPAND_LEVEL1_PROMPT = f"""I am building a document classifier to {{instruction}} with labels {{labels}}. I would like to collect collectively exhaustive taxonomy or topic for the label: {{label}} for {{source_type}}.
+    EXPAND_LEVEL1_PROMPT = f"""I am building a document classifier to {{instruction}} with labels {{labels}}. I would like to collect collectively exhaustive taxonomy or topic for the label: {{label}} from {{source_type}}.
 
 <instruction>
 - Suggest {{n}} taxonomies or topics to further expand on this label.
 - Output JSON array. Each item contains key "item" 
 </instruction>"""
 
-    EXPAND_LEVEL2_PROMPT = f"""I am building document classifier to {{instruction}} with labels {{labels}}.  I would like to collect collectively exhaustive subtopic under {{topic}} for {{source_type}}.
+    EXPAND_LEVEL2_PROMPT = f"""I am building document classifier to {{instruction}} with labels {{labels}}.  I would like to collect collectively exhaustive subtopic under {{topic}} from {{source_type}}.
 
 <instruction>
 - Suggest {{n}} subtopic or keywords. 

@@ -19,7 +19,7 @@ Together let's build more useful models.
 - One line to build any classifier that you don't have data (**No** label/ data) 🤯
 - **Competitive** result even when **No** data is provided because of synthetic data 🤯🤯. See [Benchmark](#benchmark)
 - Why one line? Not only it is easy to be used by Human but also it can easily be used by other LLM as a function call, easily to be integrated with any **agentic flow**
-- Synthetic Data Generation and Annotation Module for standalone usage
+- Synthetic Data Generation (see [approach](docs/synthetic_data_generation.md)) and Annotation Module for standalone usage
 - Smoothness integration with transformers, setfit, fasttext and datasets
   - [setfit](https://github.com/huggingface/setfit): for limited data (e.g. 100) 🤗
   - [fastText](https://github.com/facebookresearch/fastText): for blazingly fast inference (1000 docs/s) without GPU ⚡️
@@ -219,15 +219,15 @@ See more examples:
 |annotation| fasttext   | [link](examples/train_fasttext_model.py)         | [link](https://huggingface.co/kenhktsui/fasttext_test)(probably need more label) | [link](https://huggingface.co/datasets/kenhktsui/anyclassifier_dataset_demo) |
 
 ## 🧪Benchmark
-Model performance of synthetic data is at par, if not exceeds, that of real data.
+Model performance of synthetic data is at par/ marginal lower than that of real data, which is not bad because the testing data is usually morel similar to training (real) data than synthetic data.
 
 |dataset | approach                               |  model_type                                                       | metrics         |
 |---|----------------------------------------|----------------------------------------|-----------------|
 |imdb| full training dataset                  | [lvwerra/distilbert-imdb](https://huggingface.co/lvwerra/distilbert-imdbb) | Accuracy: 92.8% |
-|imdb| synthetic data generation (28 samples) |setfit                                                                     | Accuracy: 88.8% |
-|imdb| annotation (30 records)                |setfit                                                                    | Accuracy: 85.9% |
+|imdb| synthetic data generation (25 samples) |setfit                                                                     | Accuracy: 87.8% |
+|imdb| annotation (30 records)                |setfit                                                                    | Accuracy: 90.8% |
 |zeroshot/twitter-financial-news-sentiment| full training dataset                  | [nickmuchi/finbert-tone-finetuned-fintwitter-classification](https://huggingface.co/nickmuchi/finbert-tone-finetuned-fintwitter-classification) | F1: 0.884       |
-|zeroshot/twitter-financial-news-sentiment| synthetic data generation (46 samples) |setfit                                                                     | F1: 0.606       |
+|zeroshot/twitter-financial-news-sentiment| synthetic data generation (46 samples) |setfit                                                                     | F1: 0.627       |
 |zeroshot/twitter-financial-news-sentiment| annotation (42 records)                |setfit                                                                    | F1: 0.668       |
 
 
