@@ -9,6 +9,7 @@ from anyclassifier.annotation.annotator import LlamaCppAnnotator
 from anyclassifier.fasttext_wrapper import (
     FastTextConfig, FastTextTrainer, FastTextForSequenceClassification, FastTextTrainingArguments
 )
+from anyclassifier.synthetic_data_generation import SyntheticDataGeneratorForSequenceClassification
 import torch
 
 
@@ -18,8 +19,8 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 def train_anyclassifier(
     instruction: str,
     labels: List[Label],
-    annotator_model_path: str,
-    unlabeled_dataset: Dataset,
+    llm_model_path: str,
+    unlabeled_dataset: Optional[Dataset] = None,
     column_mapping: Dict[str, str] = {"text": "text"},
     model_type: Literal["setfit", "fasttext", "transformers"] = "setfit",
     few_shot_examples: Optional[List[Example]] = None,
@@ -27,6 +28,7 @@ def train_anyclassifier(
     num_epochs: Optional[int] = 5,
     batch_size: Optional[int] = 16,
     n_record_to_label: int = 100,
+    n_record_to_generate: int = 100,
     max_length_for_labeling: int = 1500,
     test_size: float = 0.3,
     metric: Union[str, Callable[["Dataset", "Dataset"], Dict[str, float]]] = "accuracy",
@@ -39,11 +41,11 @@ def train_anyclassifier(
     Train any classifier without labelled data.
     Args:
         instruction (`str`):
-            The instruction to LLM annotator
+            The instruction to LLM annotator (e.g. Classify a text's sentiment.) or for synthetic data generation
         labels (`List[Label]`):
             The labels including name and desc you want to classify
-        annotator_model_path (`str`):
-            The path of LLM annotator model to be used by llama.cpp
+        llm_model_path (`str`):
+            The path of LLM annotator/ generator model to be used by llama.cpp
         unlabeled_dataset ('Dataset'):
             The unlabeled dataset you want to label.
         column_mapping (`Dict[str, str]`, *optional*):
@@ -93,12 +95,17 @@ def train_anyclassifier(
         label_definition=labels,
         few_shot_examples=few_shot_examples
     )
-    annotator = LlamaCppAnnotator(prompt, annotator_model_path)
-    label_dataset = annotator.annotate_dataset(
-        unlabeled_dataset,
-        n_record=n_record_to_label,
-        max_length_for_labeling=max_length_for_labeling
-    )
+    if unlabeled_dataset is not None:
+        annotator = LlamaCppAnnotator(prompt, llm_model_path)
+        label_dataset = annotator.annotate_dataset(
+            unlabeled_dataset,
+            n_record=n_record_to_label,
+            max_length_for_labeling=max_length_for_labeling
+        )
+
+    else:
+        data_generator = SyntheticDataGeneratorForSequenceClassification(llm_model_path)
+        label_dataset = data_generator.generate(instruction, labels, n_record_to_generate=n_record_to_generate)
 
     label_dataset = label_dataset.train_test_split(test_size=test_size)
 
@@ -107,7 +114,7 @@ def train_anyclassifier(
 
     # training
     if model_type == "fasttext":
-        id2label = {i: l.name for i, l in enumerate(labels)}
+        id2label = {l.id: l.desc for l in labels}
         label2id = {label: idx for idx, label in id2label.items()}
         config = FastTextConfig(id2label=id2label, label2id=label2id)
         model = FastTextForSequenceClassification(config)
@@ -138,7 +145,7 @@ def train_anyclassifier(
 
         model = SetFitModel.from_pretrained(
             base_model,
-            labels=[l.name for l in labels],
+            labels=[l.desc for l in sorted(labels, key=lambda x: x.id)],
             device=device
         )
 
