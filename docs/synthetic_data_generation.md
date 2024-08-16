@@ -105,7 +105,7 @@ Model performance of synthetic data is at par with/ close to that of real data, 
 It implies the synthetic data generated is close to the distribution of test data, showing the effectiveness of this synthetic data generation approach.
 We will continue to add more benchmark on other datasets.
 
-Codes to replicate is stored in [examples](examples).
+Codes to replicate is stored in [examples](../examples).
 
 ## Reference
 1. Chan, X., Wang, X., Yu, D., Mi, H., Yu, D., 2024. Scaling synthetic data creation with 1,000,000,000 personas. URL: https://arxiv.org/abs/2406.20094, arXiv:2406.20094.
