@@ -7,23 +7,19 @@
 
 >Have you ever wanted/ been requested to build a classifier without any data? What it takes now is just one line 🤯.   
 
-**AnyClassifier** is a framework that helps you build a classifier **without** any label/ **even with no data**, with as limited coding as possible.    
-As a machine learning engineer, one of the unavoidable but the most heavy lifting issues is to build and curate a high quality labelled data.   
-By leveraging LLM 🤖 annotation with permissive license, one can now label and even generate training data at a better quality and at lightning speed ever.    
-This is inspired by some of the challenges I faced daily in work and doing open source - it is built for **machine learning engineer and software engineer**, by **machine learning engineer** 👨🏻‍💻.    
-By providing a higher level abstraction, this project's mission is to further **democratizes** AI to everyone, with **ONE LINE**.   
-The project is still in experimental mode, but I found it worked in some of my use cases. Feedbacks welcome, and feel free to contribute. See [Roadmap](#-roadmap).  
-Together let's build more useful models.
+**AnyClassifier** is a framework that empowers you to create high-performance classifiers without any labels or data, using minimal code. 
+It's designed to revolutionize the machine learning development process by eliminating the need for extensive data curation and labeling.
 
-## 🚀 Features
-- One line to build any classifier that you don't have data (**No** label/ data) 🤯
-- Achieving competitive results with synthetic data, comparable to using real data 🚀. See [Benchmark](#benchmark)
-- Why one line? Not only it is easy to be used by Human but also it can easily be used by other LLM as a function call, easily to be integrated with any **agentic flow**
-- Synthetic Data Generation (see [approach](docs/synthetic_data_generation.md)) and Annotation Module for standalone usage
-- Smoothness integration with transformers, setfit, fasttext and datasets
-  - [setfit](https://github.com/huggingface/setfit): for limited data (e.g. 100) 🤗
-  - [fastText](https://github.com/facebookresearch/fastText): for blazingly fast inference (1000 docs/s) without GPU ⚡️
-- Huggingface-like interface for fastText that supports push_to_hub, saving and loading (let's not forget this amazing model before transformers architecture).
+## 🚀 Key Features
+- **Zero Data Required**: Build classifiers from scratch, even without a dataset
+- **Competitive Result**: Achieving competitive results with synthetic data, comparable to using real data 🚀 - See [Benchmark](#benchmark)
+- **One-Line Implementation**: Democratizing AI for everyone, and agent (as a plugin for agentic flow)
+- **LLM-Powered Synthetic Data and Annotations**: Leverage SOTA LLM for high-quality synthetic data generation and labeling -  See [approach](docs/synthetic_data_generation.md)
+- **Designed for Real-World Use**: Created by ML engineers, for ML and software engineers
+
+## 🎯 Why AnyClassifier?
+As machine learning engineers, we understand the challenges of building and curating high-quality labeled datasets.
+AnyClassifier eliminates this bottleneck, allowing you to focus on what matters most - solving real-world problems.
 
 ## 🏁 QuickStart in Apple Silicon - Train a model in 5 min!
 <details>
@@ -237,6 +233,9 @@ We will continue to add more benchmark on other datasets.
 
 Codes to replicate is stored in [examples](examples).
 
+## 📜 Documentation
+See [docs](./docs)
+
 ## 🗺️ Roadmap
 - High Quality Data:
   - Prompt validation
@@ -252,6 +251,9 @@ Codes to replicate is stored in [examples](examples).
 - suggest features
 - create issue/ PR
 - benchmarking synthetic data generation vs annotation vs full training dataset
+
+# 📄 License
+AnyClassifier is released under the MIT License.
 
 # 📩 Follow Me For Update:
 [X](https://x.com/kenhktsui)/ [huggingface](https://huggingface.co/kenhktsui)/ [github](https://github.com/kenhktsui)
