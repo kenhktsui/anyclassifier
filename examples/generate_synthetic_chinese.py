@@ -3,7 +3,7 @@ from anyclassifier.annotation.prompt import Label
 from anyclassifier.synthetic_data_generation import SyntheticDataGeneratorForSequenceClassification
 
 
-HF_HANDLE = "kenhktsui"
+HF_HANDLE = "user_id"
 
 data_gen = SyntheticDataGeneratorForSequenceClassification(
     hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf")
