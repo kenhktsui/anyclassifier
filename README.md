@@ -230,15 +230,17 @@ The objective is to see if synthetic data is performing as well as real data (an
 Model performance of synthetic data is at par with/ close to that of real data, which is not bad because the testing data is usually by design more similar to training (real) data than synthetic data.
 We also note that synthetic data is also advantageous when class is highly imbalanced like the toxic chat problem.  
 Our benchmark implies the synthetic data generated is close to the distribution of test data, showing the effectiveness of this synthetic data generation approach, without using any real data.  
-All models finetune on `sentence-transformers/paraphrase-mpnet-base-v2` (109M). The performance can be boosted by using a larger model.
+All models finetune on `sentence-transformers/paraphrase-mpnet-base-v2` (109M). The performance can be boosted by using a larger base model and generating more data.
 
 | dataset  | metric             | synthetic data generation | annotation | full training dataset | full training reference|
 |--|--------------------|---------------------------|------------|-----------------------|--|
 |stanfordnlp/imdb| accuracy           | 0.878                     | 0.908      | 0.928                 |[lvwerra/distilbert-imdb](https://huggingface.co/lvwerra/distilbert-imdb)  |
 |zeroshot/twitter-financial-news-sentiment| f1 (weighted)      | 0.631                     | 0.676      | 0.866                 |[nickmuchi/finbert-tone-finetuned-fintwitter-classification](https://huggingface.co/nickmuchi/finbert-tone-finetuned-fintwitter-classification) |
 |ccdv/arxiv-classification| acurracy           | 0.618                     | 0.566      | 0.805                 | [paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8675939)                           |
-|lmsys/toxic-chat, toxicchat0124 | f1 (binary) | 0.362                     | 0.00       | 0.822                 | [lmsys/toxicchat-t5-large-v1.0](https://huggingface.co/lmsys/toxicchat-t5-large-v1.0)               |
+|lmsys/toxic-chat, toxicchat0124 | f1 (binary) | 0.362                     | 0.00*      | 0.822                 | [lmsys/toxicchat-t5-large-v1.0](https://huggingface.co/lmsys/toxicchat-t5-large-v1.0)               |
 |fancyzhx/ag_news| accuracy           | 0.768                     | 0.765      | 0.938                 | [fabriceyhc/bert-base-uncased-ag_news](https://huggingface.co/fabriceyhc/bert-base-uncased-ag_news) |
+
+\* Out of 42 annotations, only 2 labels is positive, making learning hard.
 
 Codes to replicate is stored in [examples](examples/benchmark.py).
 We will continue to add more benchmark on other datasets.
