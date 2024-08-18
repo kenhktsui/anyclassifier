@@ -1,6 +1,6 @@
 ![GitHub License](https://img.shields.io/github/license/kenhktsui/anyclassifier?)![PyPI - Downloads](https://img.shields.io/pypi/dm/anyclassifier?)![PyPI - Version](https://img.shields.io/pypi/v/anyclassifier?)
 
-# ∞🧙🏼‍♂️AnyClassifier - One Line To Build Any Classifier Without Data, And A Step Towards The First AI ML Engineer
+# ∞🧙🏼‍♂️AnyClassifier - One Line To Build Zero-Data Classifiers in Minutes, And A Step Towards The First AI ML Engineer
 ![image](assets/Traditional_ML_Cycle.png)
 
 ![image](assets/AnyClassifier.png)
@@ -13,12 +13,14 @@ It's designed to revolutionize the machine learning development process by elimi
 ## 🚀 Key Features
 - **Zero Data Required**: Build classifiers from scratch, even without a dataset
 - **Competitive Result**: Achieving competitive results with synthetic data, comparable to using real data 🚀 - See [Benchmark](#benchmark)
+- **Multilingual Synthetic Data Generation**: Supports generating whatever language as long as your LLM model can. 
 - **One-Line Implementation**: Democratizing AI for everyone, and agent (as a plugin for agentic flow)
 - **LLM-Powered Synthetic Data and Annotations**: Leverage SOTA LLM for high-quality synthetic data generation and labeling -  See [approach](docs/synthetic_data_generation.md)
 - **Designed for Real-World Use**: Created by ML engineers, for ML and software engineers
 
 ## 🎯 Why AnyClassifier?
-As machine learning engineers, we understand the challenges of building and curating high-quality labeled datasets.
+As machine learning engineers, we understand the challenges of building and curating high-quality labeled datasets.  
+The challenge amplifies when you want to build a multilingual dataset.  
 AnyClassifier eliminates this bottleneck, allowing you to focus on what matters most - solving real-world problems.
 
 ## 🏁 QuickStart in Apple Silicon - Train a model in 5 min!
@@ -215,23 +217,23 @@ See more examples:
 |annotation| fasttext   | [link](examples/train_fasttext_model.py)         | [link](https://huggingface.co/kenhktsui/fasttext_test)(probably need more label) | [link](https://huggingface.co/datasets/kenhktsui/anyclassifier_dataset_demo) |
 
 ## 🧪Benchmark
-Model performance of synthetic data is at par with/ close to that of real data, which is not bad because the testing data is usually morel similar to training (real) data than synthetic data.  
-It implies the synthetic data generated is close to the distribution of test data, showing the effectiveness of this synthetic data generation approach.
+The objective is to see if synthetic data is performing as well as real data (annotation). Full training dataset indicates the upper limit of performance as more data is available. 
+Model performance of synthetic data is at par with/ close to that of real data, which is not bad because the testing data is usually by design more similar to training (real) data than synthetic data.
+We also note that synthetic data is also advantageous when class is highly imbalanced like the toxic chat problem.  
+Our benchmark implies the synthetic data generated is close to the distribution of test data, showing the effectiveness of this synthetic data generation approach, without using any real data.  
+All models finetune on `sentence-transformers/paraphrase-mpnet-base-v2` (109M). The performance can be boosted by using a larger model.
+
+| dataset  | metric             | synthetic data generation | annotation | full training dataset | full training reference|
+|--|--------------------|---------------------------|------------|-----------------------|--|
+|stanfordnlp/imdb| accuracy           | 0.878                     | 0.908      | 0.928                 |[lvwerra/distilbert-imdb](https://huggingface.co/lvwerra/distilbert-imdb)  |
+|zeroshot/twitter-financial-news-sentiment| f1 (weighted)      | 0.631                     | 0.676      | 0.866                 |[nickmuchi/finbert-tone-finetuned-fintwitter-classification](https://huggingface.co/nickmuchi/finbert-tone-finetuned-fintwitter-classification) |
+|ccdv/arxiv-classification| acurracy           | 0.618                     | 0.566      | 0.805                 | [paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8675939)                           |
+|lmsys/toxic-chat, toxicchat0124 | f1 (binary) | 0.362                     | 0.00       | 0.822                 | [lmsys/toxicchat-t5-large-v1.0](https://huggingface.co/lmsys/toxicchat-t5-large-v1.0)               |
+|fancyzhx/ag_news| accuracy           | 0.768                     | 0.765      | 0.938                 | [fabriceyhc/bert-base-uncased-ag_news](https://huggingface.co/fabriceyhc/bert-base-uncased-ag_news) |
+
+Codes to replicate is stored in [examples](examples/benchmark.py).
 We will continue to add more benchmark on other datasets.
 
-|dataset | approach                                | model_type                                                                                                                                      | metrics          |
-|---|-----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|------------------|
-|imdb| full training dataset                   | [lvwerra/distilbert-imdb](https://huggingface.co/lvwerra/distilbert-imdbb)                                                                      | Accuracy: 92.8%  |
-|imdb| synthetic data generation (25 samples)  | setfit                                                                                                                                          | Accuracy: 87.8%  |
-|imdb| annotation (30 records)                 | setfit                                                                                                                                          | Accuracy: 90.8%  |
-|zeroshot/twitter-financial-news-sentiment| full training dataset                   | [nickmuchi/finbert-tone-finetuned-fintwitter-classification](https://huggingface.co/nickmuchi/finbert-tone-finetuned-fintwitter-classification) | F1: 0.884        |
-|zeroshot/twitter-financial-news-sentiment| synthetic data generation (46 samples)  | setfit                                                                                                                                          | F1: 0.627        |
-|zeroshot/twitter-financial-news-sentiment| annotation (42 records)                 | setfit                                                                                                                                          | F1: 0.668        |
-|ccdv/arxiv-classification| full training dataset                   | [paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8675939)                                                                       | Accuracy: 80.47% |
-|ccdv/arxiv-classification| synthetic data generation (187 samples) | setfit                                                                                                                                          | F1: 0.618        |
-|ccdv/arxiv-classification| annotation (189 records)                | setfit                                                                                                                                          | F1: 0.589        |
-
-Codes to replicate is stored in [examples](examples).
 
 ## 📜 Documentation
 See [docs](./docs)
@@ -240,11 +242,13 @@ See [docs](./docs)
 - High Quality Data:
   - Prompt validation
   - Label validation - inter-model annotation
+  - R&D in synthetic data generation
 - High Quality Model
   - Auto error analysis
   - Auto model documentation
-  - Auto synthetic data
+  - Auto targeted synthetic data
 - More Benchmarking
+- Multilingual Support
 
 # 👋 Contributing
 - build models with AnyClassifier

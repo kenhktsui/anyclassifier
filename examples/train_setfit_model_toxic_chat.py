@@ -8,16 +8,18 @@ from setfit import SetFitModel
 HF_HANDLE = "user_id"
 
 
-dataset = load_dataset("zeroshot/twitter-financial-news-sentiment")
+dataset = load_dataset("lmsys/toxic-chat", "toxicchat0124")
+dataset = dataset.rename_column("toxicity", "label")
+dataset = dataset.rename_column("user_input", "text")
 # mock unlabeled data
 unlabeled_dataset = dataset["train"].remove_columns("label")
 
+
 trainer = train_anyclassifier(
-        "Classify sentiment of finance-related tweets.",
+        "Classify if a LLM prompt or chat is toxic.",
     [
-        Label(id=0, desc='Bearish'),
-        Label(id=1, desc='Bullish'),
-        Label(id=2, desc='Neutral')
+        Label(id=0, desc='Non toxic'),
+        Label(id=1, desc='Toxic')
     ],
     hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
     unlabeled_dataset,
@@ -29,18 +31,12 @@ trainer = train_anyclassifier(
     is_dataset_private=True,
     metric="f1",
     metric_kwargs={"average": "micro"},
-    dataset_repo_id=f"{HF_HANDLE}/test_twitter_financial_news"
+    dataset_repo_id=f"{HF_HANDLE}/test_toxic_chat"
 )
-full_test_data = dataset["validation"]
+full_test_data = dataset["test"]
 
 print(trainer.evaluate(full_test_data))
 
-trainer.push_to_hub(f"{HF_HANDLE}/setfit_test_twitter_news", private=True)
+trainer.push_to_hub(f"{HF_HANDLE}/setfit_test_toxic_chat", private=True)
 
-model = SetFitModel.from_pretrained(f"{HF_HANDLE}/setfit_test_twitter_news")
-# Run inference
-text = ["$GM - GM loses a bull https://t.co/tdUfG5HbXy",
-        "Canada Goose upgraded to outperform from neutral at Baird, price target C$53"]
-preds = model.predict(text)
-print(text)
-print(preds)
+model = SetFitModel.from_pretrained(f"{HF_HANDLE}/setfit_test_toxic_chat")

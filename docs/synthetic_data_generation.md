@@ -100,12 +100,30 @@ If later is used, the result no of record = no of label * n_source_type * n_topi
 If there are many labels in a classification problem, it might take a while to generate synthetic data.
 
 ## Benchmarking
-We tested on three datasets - imdb, zeroshot/twitter-financial-news-sentiment and ccdv/arxiv-classification. 
-Model performance of synthetic data is at par with/ close to that of real data, which is not bad because the testing data is usually morel similar to training (real) data than synthetic data.  
-It implies the synthetic data generated is close to the distribution of test data, showing the effectiveness of this synthetic data generation approach.
-We will continue to add more benchmark on other datasets.
+We tested on multiple datasets: 
+- stanfordnlp/imdb
+- zeroshot/twitter-financial-news-sentiment
+- ccdv/arxiv-classification
+- lmsys/toxic-chat
+- fancyzhx/ag_news
 
-Codes to replicate is stored in [examples](../examples).
+The objective is to see if synthetic data is performing as well as real data (annotation). Full training dataset indicates the upper limit of performance as more data is available. 
+Model performance of synthetic data is at par with/ close to that of real data, which is not bad because the testing data is usually by design more similar to training (real) data than synthetic data.
+We also note that synthetic data is also advantageous when class is highly imbalanced like the toxic chat problem.  
+Our benchmark implies the synthetic data generated is close to the distribution of test data, showing the effectiveness of this synthetic data generation approach, without using any real data.  
+All models finetune on `sentence-transformers/paraphrase-mpnet-base-v2` (109M). The performance can be boosted by using a larger model.
+
+| dataset  | metric             | synthetic data generation | annotation | full training dataset | full training reference|
+|--|--------------------|---------------------------|------------|-----------------------|--|
+|stanfordnlp/imdb| accuracy           | 0.878                     | 0.908      | 0.928                 |[lvwerra/distilbert-imdb](https://huggingface.co/lvwerra/distilbert-imdb)  |
+|zeroshot/twitter-financial-news-sentiment| f1 (weighted)      | 0.631                     | 0.676      | 0.866                 |[nickmuchi/finbert-tone-finetuned-fintwitter-classification](https://huggingface.co/nickmuchi/finbert-tone-finetuned-fintwitter-classification) |
+|ccdv/arxiv-classification| acurracy           | 0.618                     | 0.566      | 0.805                 | [paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8675939)                           |
+|lmsys/toxic-chat, toxicchat0124 | f1 (binary) | 0.362                     | 0.00       | 0.822                 | [lmsys/toxicchat-t5-large-v1.0](https://huggingface.co/lmsys/toxicchat-t5-large-v1.0)               |
+|fancyzhx/ag_news| accuracy           | 0.768                     | 0.765      | 0.938                 | [fabriceyhc/bert-base-uncased-ag_news](https://huggingface.co/fabriceyhc/bert-base-uncased-ag_news) |
+
+
+Codes to replicate is stored in [examples](examples/benchmark.py).
+We will continue to add more benchmark on other datasets.
 
 ## Reference
 1. Chan, X., Wang, X., Yu, D., Mi, H., Yu, D., 2024. Scaling synthetic data creation with 1,000,000,000 personas. URL: https://arxiv.org/abs/2406.20094, arXiv:2406.20094.

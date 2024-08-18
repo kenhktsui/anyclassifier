@@ -1,6 +1,6 @@
 from huggingface_hub import hf_hub_download
 from datasets import load_dataset
-from anyclassifier.annotation.prompt import Label
+from anyclassifier.schema import Label
 from anyclassifier import train_anyclassifier
 from setfit import SetFitModel
 

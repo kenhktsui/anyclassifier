@@ -2,37 +2,39 @@ from huggingface_hub import hf_hub_download
 from datasets import load_dataset
 from anyclassifier.schema import Label
 from anyclassifier import train_anyclassifier
-from anyclassifier.fasttext_wrapper import FastTextForSequenceClassification
+from setfit import SetFitModel
 
 
 HF_HANDLE = "user_id"
 
 
-dataset = load_dataset("stanfordnlp/imdb")
+dataset = load_dataset("fancyzhx/ag_news")
 # mock unlabeled data
 unlabeled_dataset = dataset["train"].remove_columns("label")
 
 trainer = train_anyclassifier(
-    "Classify a text's sentiment.",
+        "Classify a news into categories.",
     [
-        Label(id=1, desc='positive sentiment'),
-        Label(id=0, desc='negative sentiment')
+        Label(id=0, desc='World'),
+        Label(id=1, desc='Sports'),
+        Label(id=2, desc='Business'),
+        Label(id=3, desc='Sci/Tech'),
     ],
     hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
     unlabeled_dataset,
     column_mapping={"text": "text"},
-    model_type="fasttext",
+    model_type="setfit",
+    n_record_to_label=104,
+    num_epochs=5,
     push_dataset_to_hub=True,
     is_dataset_private=True,
-    dataset_repo_id=f"{HF_HANDLE}/test"
+    metric="accuracy",
+    dataset_repo_id=f"{HF_HANDLE}/test_ag_news"
 )
 full_test_data = dataset["test"]
 
 print(trainer.evaluate(full_test_data))
 
-trainer.push_to_hub(f"{HF_HANDLE}/fasttext_test", private=True)
+trainer.push_to_hub(f"{HF_HANDLE}/setfit_test_ag_news", private=True)
 
-model = FastTextForSequenceClassification.from_pretrained(f"{HF_HANDLE}/fasttext_test")
-# Run inference
-preds = model.predict(["i loved the spiderman movie!", "pineapple on pizza is the worst 🤮"])
-print(preds)
+model = SetFitModel.from_pretrained(f"{HF_HANDLE}/setfit_test_ag_news")
