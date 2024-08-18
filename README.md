@@ -268,5 +268,12 @@ See [docs](./docs) on our detailed methodology and documentation.
 # 📄 License
 AnyClassifier is released under the MIT License.
 
+# 🤝🏻 Credits
+Without these open source models and libraries, this project would not have been possible. 
+- powerful open source and consumer friendly LLMs e.g. Llama 3.1 8B and Gemma 2 9B
+- [llama.cpp](https://github.com/ggerganov/llama.cpp) and [llama-cpp-python](https://github.com/abetlen/llama-cpp-python)
+- [setfit](https://github.com/huggingface/setfit)
+- huggingface ecosystem
+
 # 📩 Follow Me For Update:
 [X](https://x.com/kenhktsui)/ [huggingface](https://huggingface.co/kenhktsui)/ [github](https://github.com/kenhktsui)
