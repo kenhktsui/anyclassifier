@@ -35,7 +35,7 @@ rm llama_cpp_python-0.2.88-cp39-cp39-macosx_11_0_arm64.whl
 pip install anyclassifier
 # run
 cd examples
-python train_setfit_model.py
+python train_setfit_model_imdb.py
 ```
 </details>
 
@@ -208,13 +208,22 @@ dataset = tree_constructor.generate(
 dataset.push_to_hub('user_id/any_data')
 ```
 
-See more examples:  
+See more examples in [examples](./examples)  
 
-| approach | model_type | example                                          | resulting model   | dataset   |
-|----------|------------|--------------------------------------------------|----------------|---------------|
-|synthetic data generation| setfit     | [link](examples/train_setfit_model_synthetic.py) | [link](https://huggingface.co/kenhktsui/setfit_test_syn)               | [link](https://huggingface.co/datasets/kenhktsui/test_syn) |
-|annotation| setfit     | [link](examples/train_setfit_model.py)           | [link](https://huggingface.co/kenhktsui/anyclassifier_setfit_demo)               | [link](https://huggingface.co/datasets/kenhktsui/anyclassifier_dataset_demo) |
-|annotation| fasttext   | [link](examples/train_fasttext_model.py)         | [link](https://huggingface.co/kenhktsui/fasttext_test)(probably need more label) | [link](https://huggingface.co/datasets/kenhktsui/anyclassifier_dataset_demo) |
+| dataset                                          | approach                  | model_type | example                                                          | resulting model                                                       | dataset  |
+|--------------------------------------------------|---------------------------|------------|------------------------------------------------------------------|-----------------------------------------------------------------------|--------------|
+| "stanfordnlp/imdb" like                          | synthetic data generation | setfit     | [link](examples/train_setfit_model_imdb_synthetic.py)            | [link](https://huggingface.co/kenhktsui/setfit_test_imdb)             | [link](https://huggingface.co/datasets/kenhktsui/test_imdb_syn) |
+| stanfordnlp/imdb                                 |  annotation               | setfit     | [link](examples/train_setfit_model_imdb.py)                      | [link](https://huggingface.co/kenhktsui/anyclassifier_setfit_demo)    | [link](https://huggingface.co/datasets/kenhktsui/test_imdb) |
+| "zeroshot/twitter-financial-news-sentiment" like | synthetic data generation | setfit     | [link](examples/train_setfit_model_twitter_financial_news_sentiment_synthetic.py) | [link](https://huggingface.co/kenhktsui/setfit_test_twitter_news_syn) | [link](https://huggingface.co/datasets/kenhktsui/test_twitter_financial_news_syn) |
+| zeroshot/twitter-financial-news-sentiment        |  annotation               | setfit     | [link](examples/train_setfit_model_twitter_financial_news_sentiment.py) | [link](https://huggingface.co/kenhktsui/setfit_test_twitter_news)     | [link](https://huggingface.co/datasets/kenhktsui/test_twitter_financial_news) |
+| "ccdv/arxiv-classification" like                 | synthetic data generation | setfit     | [link](examples/train_setfit_model_arxiv_topic_synthetic.py)     | [link](kenhktsui/setfit_test_arxiv_classification_syn)                | [link](https://huggingface.co/datasets/kenhktsui/test_arxiv_classification_syn) |
+| ccdv/arxiv-classification                        |  annotation               | setfit     | [link](examples/train_setfit_model_arxiv_topic.py)               | [link](kenhktsui/setfit_test_arxiv_classification)                    | [link](https://huggingface.co/datasets/kenhktsui/test_arxiv_classification_syn) |
+| "lmsys/toxic-chat, toxicchat0124" like           | synthetic data generation | setfit     | [link](examples/train_setfit_model_toxic_chat_synthetic.py)      | [link](kenhktsui/setfit_test_toxic_chat_syn)                          | [link](https://huggingface.co/datasets/kenhktsui/test_toxic_chat_syn) |
+| lmsys/toxic-chat, toxicchat0124                  |  annotation               | setfit     | [link](examples/train_setfit_model_toxic_chat.py)                | [link](kenhktsui/setfit_test_toxic_chat)                              | [link](https://huggingface.co/datasets/kenhktsui/test_toxic_chat) |
+| "fancyzhx/ag_news" like                          | synthetic data generation | setfit     | [link](examples/train_setfit_model_ag_news_synthetic.py)         | [link](https://huggingface.co/kenhktsui/setfit_test_ag_news_syn)      | [link](https://huggingface.co/datasets/kenhktsui/test_ag_news_syn) |
+| fancyzhx/ag_news                                 |  annotation               | setfit     | [link](examples/train_setfit_model_ag_news.py)                   | [link](https://huggingface.co/kenhktsui/setfit_test_ag_news)          | [link](https://huggingface.co/datasets/kenhktsui/test_ag_news) |
+| chinese sentiment                                | synthetic data generation | N/A        | [link](examples/generate_synthetic_chinese.py)                                                         | -                                                                     | [link](https://huggingface.co/datasets/kenhktsui/chinese_sentiment_syn) |
+
 
 ## 🧪Benchmark
 The objective is to see if synthetic data is performing as well as real data (annotation). Full training dataset indicates the upper limit of performance as more data is available. 
@@ -236,7 +245,7 @@ We will continue to add more benchmark on other datasets.
 
 
 ## 📜 Documentation
-See [docs](./docs)
+See [docs](./docs) on our detailed methodology and documentation.
 
 ## 🗺️ Roadmap
 - High Quality Data:
