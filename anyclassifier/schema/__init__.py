@@ -1,0 +1,1 @@
+from anyclassifier.schema.schema import Label, Example

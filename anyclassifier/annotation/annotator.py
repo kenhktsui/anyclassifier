@@ -8,8 +8,8 @@ import logging
 from llama_cpp import Llama
 from datasets import Dataset  # it is import to load llama_cpp first before datasets to prevent error like https://github.com/abetlen/llama-cpp-python/issues/806
 from huggingface_hub import hf_hub_download
-from anyclassifier.annotation.prompt import AnnotationPrompt, Label
-
+from anyclassifier.annotation.prompt import AnnotationPrompt
+from anyclassifier.schema.schema import Label
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
@@ -19,7 +19,7 @@ class AnnotatorBase(metaclass=ABCMeta):
         self.regex_pattern = None
 
     def prepare_regex_pattern(self, labels: List[Label]):
-        labels_str = "|".join(l.name for l in labels)
+        labels_str = "|".join(str(l.id) for l in labels)
         self.regex_pattern = re.compile(rf'Label:\s*({labels_str})')
 
     @abstractmethod
@@ -29,7 +29,7 @@ class AnnotatorBase(metaclass=ABCMeta):
     def parse_output(self, text: str) -> Optional[str]:
         match = self.regex_pattern.search(text)
         if match:
-            return match.group(1)
+            return int(match.group(1))
         return None
 
 
@@ -95,8 +95,8 @@ if __name__ == "__main__":
     prompt = AnnotationPrompt(
         task_description="Classify a text's sentiment.",
         label_definition=[
-            Label(name="1", desc='positive sentiment'),
-            Label(name="0", desc='negative sentiment')
+            Label(id=1, desc='positive sentiment'),
+            Label(id=0, desc='negative sentiment')
         ]
     )
     annotator = LlamaCppAnnotator(prompt)
