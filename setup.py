@@ -16,7 +16,7 @@ REQUIRED_PKGS = [
 
 setup(
     name="anyclassifier",
-    version="0.1.1",
+    version="0.2.0",
     description="One Line To Build Any Classifier Without Data",
     long_description=README_TEXT,
     long_description_content_type="text/markdown",
@@ -24,7 +24,7 @@ setup(
     maintainer_email="kenhktsui@gmail.com",
     url="https://github.com/kenhktsui/anyclassifier",
     download_url="https://github.com/kenhktsui/anyclassifier/tags",
-    license="Apache 2.0",
+    license="MIT",
     packages=find_packages(),
     include_package_data=True,
     install_requires=REQUIRED_PKGS,
