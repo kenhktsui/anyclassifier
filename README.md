@@ -277,5 +277,17 @@ Without these open source models and libraries, this project would not have been
 - [setfit](https://github.com/huggingface/setfit)
 - huggingface ecosystem
 
+# 📖 Citation
+If you like this work, please cite:
+```
+@software{Tsui_AnyClassifier_2024,
+author = {Tsui, Ken},
+month = {8},
+title = {{AnyClassifier}},
+url = {https://github.com/kenhktsui/anyclassifier},
+year = {2024}
+}
+```
+
 # 📩 Follow Me For Update:
 [X](https://x.com/kenhktsui)/ [huggingface](https://huggingface.co/kenhktsui)/ [github](https://github.com/kenhktsui)
