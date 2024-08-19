@@ -22,6 +22,7 @@ By enumerating on all these combination, it ensures the diversity of synthetic d
 I am building a document classifier to {{instruction}} with labels {{labels}}. Suggest {{n}} source type of information for efficient data acquisition.
 Output JSON array. Each item contains key "source_type".
 ```
+
 ### Prompt to Expand Topic from Label
 ```txt
 I am building a document classifier to {{instruction}} with labels {{labels}}. I would like to collect collectively exhaustive taxonomy or topic for the label: {{label}} from {{source_type}}.
@@ -29,11 +30,9 @@ I am building a document classifier to {{instruction}} with labels {{labels}}. I
 <instruction>
 - Suggest {{n}} taxonomies or topics to further expand on this label.
 - Output JSON array. Each item contains key "item" 
-</instruction>```
-
-## Example
-![image](../assets/Sentiment_Analysis_Data_Generation.png)
+</instruction>
 ```
+
 ### Prompt to Expand Subtopic from Topic
 ```txt
 I am building document classifier to {{instruction}} with labels {{labels}}.  I would like to collect collectively exhaustive subtopic under {{topic}} from {{source_type}}.
