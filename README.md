@@ -236,7 +236,7 @@ All models finetune on `sentence-transformers/paraphrase-mpnet-base-v2` (109M). 
 |--|--------------------|---------------------------|------------|-----------------------|--|
 |stanfordnlp/imdb| accuracy           | 0.878                     | 0.908      | 0.928                 |[lvwerra/distilbert-imdb](https://huggingface.co/lvwerra/distilbert-imdb)  |
 |zeroshot/twitter-financial-news-sentiment| f1 (weighted)      | 0.631                     | 0.676      | 0.866                 |[nickmuchi/finbert-tone-finetuned-fintwitter-classification](https://huggingface.co/nickmuchi/finbert-tone-finetuned-fintwitter-classification) |
-|ccdv/arxiv-classification| acurracy           | 0.618                     | 0.566      | 0.805                 | [paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8675939)                           |
+|ccdv/arxiv-classification| accuracy           | 0.618                     | 0.566      | 0.805                 | [paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8675939)                           |
 |lmsys/toxic-chat, toxicchat0124 | f1 (binary) | 0.362                     | 0.00*      | 0.822                 | [lmsys/toxicchat-t5-large-v1.0](https://huggingface.co/lmsys/toxicchat-t5-large-v1.0)               |
 |fancyzhx/ag_news| accuracy           | 0.768                     | 0.765      | 0.938                 | [fabriceyhc/bert-base-uncased-ag_news](https://huggingface.co/fabriceyhc/bert-base-uncased-ag_news) |
 
