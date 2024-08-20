@@ -6,7 +6,7 @@ from collections import Counter
 from tqdm import tqdm
 import logging
 from llama_cpp import Llama
-from datasets import Dataset  # it is import to load llama_cpp first before datasets to prevent error like https://github.com/abetlen/llama-cpp-python/issues/806
+from datasets import Dataset  # it is important to load llama_cpp first before datasets to prevent error like https://github.com/abetlen/llama-cpp-python/issues/806
 from huggingface_hub import hf_hub_download
 from anyclassifier.annotation.prompt import AnnotationPrompt
 from anyclassifier.schema.schema import Label
@@ -100,7 +100,7 @@ if __name__ == "__main__":
         ]
     )
     annotator = LlamaCppAnnotator(prompt)
-    print(annotator.annotate("It is one of best I ever watched."))
+    print(annotator.annotate("It is one of the best I ever watched."))
 
     dataset = load_dataset("stanfordnlp/imdb", split="train")
     # mock unlabeled data
