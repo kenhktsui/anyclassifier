@@ -100,7 +100,7 @@ if __name__ == "__main__":
         ]
     )
     annotator = LlamaCppAnnotator(prompt)
-    print(annotator.annotate("It is one of best I ever watched."))
+    print(annotator.annotate("It is one of the best I ever watched."))
 
     dataset = load_dataset("stanfordnlp/imdb", split="train")
     # mock unlabeled data
