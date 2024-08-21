@@ -11,6 +11,7 @@ from anyclassifier.fasttext_wrapper import (
 )
 from anyclassifier.synthetic_data_generation import SyntheticDataGeneratorForSequenceClassification
 import torch
+import asyncio
 
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -104,8 +105,8 @@ def train_anyclassifier(
         )
 
     else:
-        data_generator = SyntheticDataGeneratorForSequenceClassification(llm_model_path)
-        label_dataset = data_generator.generate(instruction, labels, n_record_to_generate=n_record_to_generate)
+        data_generator = SyntheticDataGeneratorForSequenceClassification(llama_cpp_model_path=llm_model_path)
+        label_dataset = asyncio.run(data_generator.generate(instruction, labels, n_record_to_generate=n_record_to_generate))
 
     label_dataset = label_dataset.train_test_split(test_size=test_size)
 

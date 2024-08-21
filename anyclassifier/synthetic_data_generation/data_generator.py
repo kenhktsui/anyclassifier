@@ -2,7 +2,8 @@ from typing import List, Union, Optional
 from abc import abstractmethod, ABCMeta
 import os
 import json
-from openai import DefaultHttpxClient, OpenAI
+import asyncio
+from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 from tqdm import tqdm
 from pydantic import BaseModel, RootModel
 from huggingface_hub import hf_hub_download
@@ -21,34 +22,41 @@ class SyntheticDataGeneratorBase(metaclass=ABCMeta):
     def __init__(self,
                  use_provider: str = "llama_cpp",
                  *kwargs,
-                 openai_api_key: str,
-                 openai_proxy_url: str,
-                 llamacpp_model_path: str = hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
-                                                            "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
-                 llamacpp_n_gpu_layers: int = -1,
-                 llamacpp_n_ctx: int = 4096
+                 temperature: float = 0.3,
+                 max_tokens: int = 4096,
+                 openai_model: str = "gpt-4o-mini",
+                 openai_api_key: str = os.environ.get("OPENAI_API_KEY"),
+                 openai_proxy_url: str = os.getenv("OPENAI_PROXY_URL"),
+                 llama_cpp_model_path: str = hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
+                                                             "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
+                 llama_cpp_n_gpu_layers: int = -1,
+                 llama_cpp_n_ctx: int = 4096,
                  ):
 
         self._use_provider = use_provider
+        self._temperature = temperature
+        self._max_tokens = max_tokens
+        self._openai_model = openai_model
+
         if self._use_provider == "llama_cpp":
-            if llamacpp_model_path is None or llamacpp_n_gpu_layers is None or llamacpp_n_ctx is None:
-                raise ValueError("llamacpp_model_path, llamacpp_n_gpu_layers and llamacpp_n_ctx must be provided")
-            self._llama_cpp = Llama(model_path=llamacpp_model_path,
-                                    n_gpu_layers=llamacpp_n_gpu_layers,
+            if llama_cpp_model_path is None:
+                raise ValueError("llama_cpp_model_path must be provided for llama_cpp")
+            self._llama_cpp = Llama(model_path=llama_cpp_model_path,
+                                    n_gpu_layers=llama_cpp_n_gpu_layers,
                                     seed=42,
-                                    n_ctx=llamacpp_n_ctx,
+                                    n_ctx=llama_cpp_n_ctx,
                                     verbose=False,
                                     )
             # randomise generation for each run
             self._llama_cpp.set_seed(-1)
         elif self._use_provider == "openai":
             if openai_api_key is None or openai_proxy_url is None:
-                raise ValueError("openai_api_key and openai_proxy_url must be provided")
-            self._openai = OpenAI(api_key=openai_api_key,
-                                  http_client=DefaultHttpxClient(proxy=openai_proxy_url)
-                                  )
+                raise ValueError("openai_api_key and openai_proxy_url must be provided for openai")
+            self._openai = AsyncOpenAI(api_key=openai_api_key,
+                                       http_client=DefaultAsyncHttpxClient(proxy=openai_proxy_url),
+                                       )
 
-    def prompt_llm(self, prompt: str, schema: Union[BaseModel, RootModel]) -> List[dict]:
+    async def prompt_llm(self, prompt: str, schema: Union[BaseModel, RootModel]) -> List[dict]:
         if self._use_provider == "llama_cpp":
             grammar = LlamaGrammar.from_json_schema(json.dumps(schema.model_json_schema(), indent=2))
             output = self._llama_cpp.create_chat_completion(
@@ -62,8 +70,8 @@ class SyntheticDataGeneratorBase(metaclass=ABCMeta):
                         "content": prompt
                     }
                 ],
-                max_tokens=4096,
-                temperature=0.3,
+                max_tokens=self._max_tokens,
+                temperature=self._temperature,
                 grammar=grammar
             )
             response_content = output["choices"][0]["message"]["content"]
@@ -71,17 +79,15 @@ class SyntheticDataGeneratorBase(metaclass=ABCMeta):
             system_prompt = f"{self.SYSTEM_PROMPT}\n\nOutput a JSON array in a field named 'data', that matches" \
                             f"the following schema:\n{json.dumps(schema.model_json_schema(), indent=2)}"
 
-            print(system_prompt)
-            print(prompt)
-
-            output = self._openai.chat.completions.create(
+            output = await self._openai.chat.completions.create(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                model="gpt-4o",
-                temperature=0.3
+                model=self._openai_model,
+                temperature=self._temperature,
+                max_tokens=self._max_tokens
             )
             response_content = output.choices[0].message.content
         else:
@@ -146,14 +152,14 @@ Output JSON array. Each item contains key "source_type"."""
 - Output JSON array. Each item contains key "text" 
 </instruction>"""
 
-    def generate(self,
-                 instruction: str,
-                 labels: List[Label],
-                 n_record_to_generate: Optional[int] = 100,
-                 n_source_type: Optional[int] = None,
-                 n_topic: Optional[int] = None,
-                 n_subtopic: Optional[int] = None,
-                 sample_per_subtopic: Optional[int] = None) -> Dataset:
+    async def generate(self,
+                       instruction: str,
+                       labels: List[Label],
+                       n_record_to_generate: Optional[int] = 100,
+                       n_source_type: Optional[int] = None,
+                       n_topic: Optional[int] = None,
+                       n_subtopic: Optional[int] = None,
+                       sample_per_subtopic: Optional[int] = None) -> Dataset:
         """
         Args:
             instruction (`str`):
@@ -198,33 +204,34 @@ Output JSON array. Each item contains key "source_type"."""
             instruction = instruction[:-1]
 
         source_prompt = self.SOURCE_TYPE_PROMPT.format(instruction=instruction, labels=labels_str, n=n_source_type)
-        source_type_list = self.prompt_llm(source_prompt, SourceTypeList)[:n_source_type]
+        source_type_list = (await self.prompt_llm(source_prompt, SourceTypeList))[:n_source_type]
 
         data_record_list = []
         for label in labels:
             for s in tqdm(source_type_list, desc="source_type"):
-                topics = self.prompt_llm(self.EXPAND_LEVEL1_PROMPT.format(instruction=instruction,
-                                                                          labels=labels_str,
-                                                                          label=label.desc,
-                                                                          source_type=s["source_type"],
-                                                                          n=n_topic),
-                                         ItemList)[:n_topic]
-                for t in tqdm(topics, desc="topic"):
-                    subtopics = self.prompt_llm(self.EXPAND_LEVEL2_PROMPT.format(instruction=instruction,
+                topics = (await self.prompt_llm(self.EXPAND_LEVEL1_PROMPT.format(instruction=instruction,
                                                                                  labels=labels_str,
                                                                                  label=label.desc,
                                                                                  source_type=s["source_type"],
-                                                                                 n=n_subtopic,
-                                                                                 topic=t["item"]),
-                                                ItemList)[:n_subtopic]
+                                                                                 n=n_topic),
+                                                ItemList))[:n_topic]
+                for t in tqdm(topics, desc="topic"):
+                    subtopics = (await self.prompt_llm(self.EXPAND_LEVEL2_PROMPT.format(instruction=instruction,
+                                                                                        labels=labels_str,
+                                                                                        label=label.desc,
+                                                                                        source_type=s["source_type"],
+                                                                                        n=n_subtopic,
+                                                                                        topic=t["item"]),
+                                                       ItemList))[:n_subtopic]
                     for st in subtopics:
-                        data_record = self.prompt_llm(self.DATA_GENERATION_PROMPT.format(instruction=instruction,
-                                                                                         labels=labels_str,
-                                                                                         label=label.desc,
-                                                                                         topic=st["item"],
-                                                                                         source_type=s["source_type"],
-                                                                                         n=sample_per_subtopic),
-                                                      SyntheticData)[:sample_per_subtopic]
+                        print(len(subtopics))
+                        data_record = (await self.prompt_llm(self.DATA_GENERATION_PROMPT.format(instruction=instruction,
+                                                                                                labels=labels_str,
+                                                                                                label=label.desc,
+                                                                                                topic=st["item"],
+                                                                                                source_type=s["source_type"],
+                                                                                                n=sample_per_subtopic),
+                                                             SyntheticData))[:sample_per_subtopic]
                         for d in data_record:
                             d['label'] = label.id
                             d['meta'] = {
@@ -241,14 +248,16 @@ Output JSON array. Each item contains key "source_type"."""
 if __name__ == "__main__":
     tree_constructor = SyntheticDataGeneratorForSequenceClassification(
         "openai",
-        # "llama_cpp",
         openai_api_key=os.environ.get("OPENAI_API_KEY"),
-        openai_proxy_url=os.getenv("OPENAI_PROXY_URL")
+        openai_proxy_url=os.getenv("OPENAI_PROXY_URL"),
+        openai_model="gpt-4o-mini",
+        temperature=0.3,
+        max_tokens=4096,
     )
-    tree_constructor.generate(
+    dataset = asyncio.run(tree_constructor.generate(
         "classify sentiment of movie review",
         [
             Label(id=0, desc='negative sentiment'),
             Label(id=1, desc='positive sentiment')
         ]
-    )
+    ))
