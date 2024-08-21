@@ -1,51 +1,96 @@
 from typing import List, Union, Optional
 from abc import abstractmethod, ABCMeta
+import os
 import json
+from openai import DefaultHttpxClient, OpenAI
 from tqdm import tqdm
 from pydantic import BaseModel, RootModel
 from huggingface_hub import hf_hub_download
 from datasets import Dataset
 from llama_cpp import Llama, LlamaGrammar
 from anyclassifier.schema.schema import ItemList, SourceTypeList, SyntheticData, Label
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class SyntheticDataGeneratorBase(metaclass=ABCMeta):
-    SYSTEM_PROMPT = """You are a helpful, smart, kind, and efficient AI assistant. You always fulfill the user's requests to the best of your ability."""
+    SYSTEM_PROMPT = """You are a helpful, smart, kind, and efficient AI assistant. You always fulfill the user's
+                       requests to the best of your ability."""
 
     def __init__(self,
-                 model_path: str = hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
-                                                   "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
-                 n_gpu_layers: int = -1,
-                 n_ctx: int = 4096
+                 use_provider: str = "llama_cpp",
+                 *kwargs,
+                 openai_api_key: str,
+                 openai_proxy_url: str,
+                 llamacpp_model_path: str = hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
+                                                            "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
+                 llamacpp_n_gpu_layers: int = -1,
+                 llamacpp_n_ctx: int = 4096
                  ):
-        self._llm = Llama(model_path=model_path,
-                          n_gpu_layers=n_gpu_layers,
-                          seed=42,
-                          n_ctx=n_ctx,
-                          verbose=False,
-                          )
-        # randomise generation for each run
-        self._llm.set_seed(-1)
+
+        self._use_provider = use_provider
+        if self._use_provider == "llama_cpp":
+            if llamacpp_model_path is None or llamacpp_n_gpu_layers is None or llamacpp_n_ctx is None:
+                raise ValueError("llamacpp_model_path, llamacpp_n_gpu_layers and llamacpp_n_ctx must be provided")
+            self._llama_cpp = Llama(model_path=llamacpp_model_path,
+                                    n_gpu_layers=llamacpp_n_gpu_layers,
+                                    seed=42,
+                                    n_ctx=llamacpp_n_ctx,
+                                    verbose=False,
+                                    )
+            # randomise generation for each run
+            self._llama_cpp.set_seed(-1)
+        elif self._use_provider == "openai":
+            if openai_api_key is None or openai_proxy_url is None:
+                raise ValueError("openai_api_key and openai_proxy_url must be provided")
+            self._openai = OpenAI(api_key=openai_api_key,
+                                  http_client=DefaultHttpxClient(proxy=openai_proxy_url)
+                                  )
 
     def prompt_llm(self, prompt: str, schema: Union[BaseModel, RootModel]) -> List[dict]:
-        grammar = LlamaGrammar.from_json_schema(json.dumps(schema.model_json_schema()))
-        output = self._llm.create_chat_completion(
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.SYSTEM_PROMPT
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            max_tokens=4096,
-            temperature=0.3,
-            grammar=grammar
-        )
+        if self._use_provider == "llama_cpp":
+            grammar = LlamaGrammar.from_json_schema(json.dumps(schema.model_json_schema(), indent=2))
+            output = self._llama_cpp.create_chat_completion(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.SYSTEM_PROMPT
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                max_tokens=4096,
+                temperature=0.3,
+                grammar=grammar
+            )
+            response_content = output["choices"][0]["message"]["content"]
+        elif self._use_provider == "openai":
+            system_prompt = f"{self.SYSTEM_PROMPT}\n\nOutput a JSON array in a field named 'data', that matches" \
+                            f"the following schema:\n{json.dumps(schema.model_json_schema(), indent=2)}"
+
+            print(system_prompt)
+            print(prompt)
+
+            output = self._openai.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                model="gpt-4o",
+                temperature=0.3
+            )
+            response_content = output.choices[0].message.content
+        else:
+            raise ValueError(f"Invalid model: {self._use_provider}")
+
         try:
-            return json.loads(output["choices"][0]["message"]["content"])
+            result = json.loads(response_content)['data']
+            print(result)
+            return result
         except json.decoder.JSONDecodeError:
             return []
 
@@ -194,7 +239,12 @@ Output JSON array. Each item contains key "source_type"."""
 
 
 if __name__ == "__main__":
-    tree_constructor = SyntheticDataGeneratorForSequenceClassification()
+    tree_constructor = SyntheticDataGeneratorForSequenceClassification(
+        "openai",
+        # "llama_cpp",
+        openai_api_key=os.environ.get("OPENAI_API_KEY"),
+        openai_proxy_url=os.getenv("OPENAI_PROXY_URL")
+    )
     tree_constructor.generate(
         "classify sentiment of movie review",
         [
