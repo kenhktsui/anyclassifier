@@ -3,12 +3,12 @@ from typing import List, Optional, Union
 from abc import abstractmethod, ABCMeta
 import os
 import asyncio
-from datasets import Dataset
 from pydantic import BaseModel, RootModel
-from anyclassifier.llm.llm_client import LLMClient
-from anyclassifier.schema.schema import ItemList, SourceTypeList, SyntheticData, Label
 from dotenv import load_dotenv
 import logging
+from anyclassifier.llm.llm_client import LLMClient
+from anyclassifier.schema.schema import ItemList, SourceTypeList, SyntheticData, Label
+from datasets import Dataset  # it is import to load llama_cpp first before datasets to prevent error like https://github.com/abetlen/llama-cpp-python/issues/806
 
 load_dotenv()
 
