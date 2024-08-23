@@ -52,10 +52,6 @@ def train_anyclassifier(
             The path of LLM annotator/ generator model to be used by llama.cpp
         llm_client (`LLMClient`):
             OpenAIClient or LlamaCppClient to be used for synthetic data generation and labeling
-        generation_concurrency (`int`, *optional*):
-            The concurrency of querying llm for synthetic data generation
-        labeling_concurrency (`int`, *optional*):
-            The concurrency of querying llm for labeling
         unlabeled_dataset ('Dataset'):
             The unlabeled dataset you want to label.
         column_mapping (`Dict[str, str]`, *optional*):
@@ -94,6 +90,10 @@ def train_anyclassifier(
             Huggingface dataset repo id if you want to push
         is_dataset_private (`bool`, *optional*):
             Whether you want to make the dataset private
+        generation_concurrency (`int`, *optional*):
+            The concurrency of querying llm for synthetic data generation
+        labeling_concurrency (`int`, *optional*):
+            The concurrency of querying llm for labeling
     """
     if push_dataset_to_hub:
         interpreter_login(new_session=False)
