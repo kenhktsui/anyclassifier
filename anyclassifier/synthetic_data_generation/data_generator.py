@@ -1,8 +1,11 @@
+from dataclasses import dataclass
+from enum import Enum
 from typing import List, Union, Optional
 from abc import abstractmethod, ABCMeta
 import os
 import json
 import asyncio
+import uuid
 from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 from tqdm import tqdm
 from pydantic import BaseModel, RootModel
@@ -11,8 +14,17 @@ from datasets import Dataset
 from llama_cpp import Llama, LlamaGrammar
 from anyclassifier.schema.schema import ItemList, SourceTypeList, SyntheticData, Label
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
+
+# Suppress info log from httpx
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter('[%(asctime)s] [%(name)s] %(message)s'))
+logger.addHandler(console_handler)
+logger.setLevel(logging.DEBUG)
 
 
 class SyntheticDataGeneratorBase(metaclass=ABCMeta):
@@ -76,6 +88,8 @@ class SyntheticDataGeneratorBase(metaclass=ABCMeta):
             )
             response_content = output["choices"][0]["message"]["content"]
         elif self._use_provider == "openai":
+            request_id = str(uuid.uuid4())
+            logger.debug(f'[LLM Prompt] <{request_id}> OpenAI request start')
             system_prompt = f"{self.SYSTEM_PROMPT}\n\nOutput a JSON array in a field named 'data', that matches" \
                             f"the following schema:\n{json.dumps(schema.model_json_schema(), indent=2)}"
 
@@ -90,12 +104,12 @@ class SyntheticDataGeneratorBase(metaclass=ABCMeta):
                 max_tokens=self._max_tokens
             )
             response_content = output.choices[0].message.content
+            print(f'[LLM Prompt] <{request_id}> OpenAI responded')
         else:
             raise ValueError(f"Invalid model: {self._use_provider}")
 
         try:
             result = json.loads(response_content)['data']
-            print(result)
             return result
         except json.decoder.JSONDecodeError:
             return []
@@ -159,6 +173,7 @@ Output JSON array. Each item contains key "source_type"."""
                        n_source_type: Optional[int] = None,
                        n_topic: Optional[int] = None,
                        n_subtopic: Optional[int] = None,
+                       llm_concurrency: Optional[int] = 10,
                        sample_per_subtopic: Optional[int] = None) -> Dataset:
         """
         Args:
@@ -207,41 +222,86 @@ Output JSON array. Each item contains key "source_type"."""
         source_type_list = (await self.prompt_llm(source_prompt, SourceTypeList))[:n_source_type]
 
         data_record_list = []
-        for label in labels:
-            for s in tqdm(source_type_list, desc="source_type"):
-                topics = (await self.prompt_llm(self.EXPAND_LEVEL1_PROMPT.format(instruction=instruction,
-                                                                                 labels=labels_str,
-                                                                                 label=label.desc,
-                                                                                 source_type=s["source_type"],
-                                                                                 n=n_topic),
-                                                ItemList))[:n_topic]
-                for t in tqdm(topics, desc="topic"):
-                    subtopics = (await self.prompt_llm(self.EXPAND_LEVEL2_PROMPT.format(instruction=instruction,
-                                                                                        labels=labels_str,
-                                                                                        label=label.desc,
-                                                                                        source_type=s["source_type"],
-                                                                                        n=n_subtopic,
-                                                                                        topic=t["item"]),
-                                                       ItemList))[:n_subtopic]
-                    for st in subtopics:
-                        print(len(subtopics))
+
+        @dataclass
+        class Item:
+            task: str
+            label: str
+            source_type: str
+            topic: Optional[str]
+            subtopic: Optional[str]
+
+        async def worker(name: str, queue: asyncio.Queue):
+            while True:
+                try:
+                    item: Item = await queue.get()
+
+                    logger.info(f'[{name}] - item: {item}')
+                    if item.task == "source_type":
+                        topics = (await self.prompt_llm(self.EXPAND_LEVEL1_PROMPT.format(instruction=instruction,
+                                                                                         labels=labels_str,
+                                                                                         label=item.label,
+                                                                                         source_type=item.source_type,
+                                                                                         n=n_topic),
+                                                        ItemList))[:n_topic]
+                        for t in topics:
+                            await queue.put(Item(task="topic", label=item.label,
+                                                 source_type=item.source_type, topic=t["item"], subtopic=None))
+
+                    elif item.task == "topic":
+                        subtopics = (await self.prompt_llm(self.EXPAND_LEVEL2_PROMPT.format(instruction=instruction,
+                                                                                            labels=labels_str,
+                                                                                            label=item.label,
+                                                                                            source_type=item.source_type,
+                                                                                            n=n_subtopic,
+                                                                                            topic=item.topic),
+                                                           ItemList))[:n_subtopic]
+                        for st in subtopics:
+                            await queue.put(Item(task="subtopic", label=item.label,
+                                                 source_type=item.source_type, topic=item.topic, subtopic=st["item"]))
+
+                    elif item.task == "subtopic":
                         data_record = (await self.prompt_llm(self.DATA_GENERATION_PROMPT.format(instruction=instruction,
                                                                                                 labels=labels_str,
-                                                                                                label=label.desc,
-                                                                                                topic=st["item"],
-                                                                                                source_type=s["source_type"],
+                                                                                                label=item.label,
+                                                                                                source_type=item.source_type,
+                                                                                                topic=item.subtopic,
                                                                                                 n=sample_per_subtopic),
                                                              SyntheticData))[:sample_per_subtopic]
                         for d in data_record:
-                            d['label'] = label.id
+                            d['label'] = item.label
                             d['meta'] = {
-                                "source_type": s["source_type"],
-                                "topic": t["item"],
-                                "subtopic": st["item"]
+                                "source_type": item.source_type,
+                                "topic": item.topic,
+                                "subtopic": item.subtopic
                             }
-                            print(d)
                             data_record_list.extend(data_record)
+                except Exception as e:
+                    logger.error(f'[{name}] Error: {e}')
+                finally:
+                    queue.task_done()
 
+        queue = asyncio.Queue()
+
+        # Create workers
+        workers: list[asyncio.Task] = []
+        for i in range(llm_concurrency):
+            task = asyncio.create_task(worker(f'worker-{i}', queue))
+            workers.append(task)
+
+        # Put initial items into queue
+        for label in labels:
+            for source_type in source_type_list:
+                await queue.put(Item(task="source_type", label=label.desc, source_type=source_type['source_type'], topic=None, subtopic=None))
+
+        # Wait for all tasks to be completed
+        await queue.join()
+
+        # Cancel worker tasks
+        for task in workers:
+            task.cancel()
+
+        await asyncio.gather(*workers, return_exceptions=True)
         return Dataset.from_list(data_record_list)
 
 
@@ -259,5 +319,11 @@ if __name__ == "__main__":
         [
             Label(id=0, desc='negative sentiment'),
             Label(id=1, desc='positive sentiment')
-        ]
+        ],
+        n_record_to_generate=20,
+        n_source_type=2,
+        n_topic=2,
+        n_subtopic=2,
+        llm_concurrency=5
     ))
+    print(dataset)
