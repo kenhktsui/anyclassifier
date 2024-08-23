@@ -1,5 +1,6 @@
 from huggingface_hub import hf_hub_download
 from datasets import load_dataset
+from anyclassifier.llm.llm_client import LlamaCppClient
 from anyclassifier.schema import Label
 from anyclassifier import train_anyclassifier
 from setfit import SetFitModel
@@ -10,8 +11,12 @@ HF_HANDLE = "user_id"
 
 dataset = load_dataset("ccdv/arxiv-classification")
 
+llm_client = LlamaCppClient(hf_hub_download(
+    "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"))
+# or llm_client = OpenAIClient()
+
 trainer = train_anyclassifier(
-        "Classify an academic paper into topics.",
+    "Classify an academic paper into topics.",
     [
         Label(id=0, desc='Commutative Algebra'),
         Label(id=1, desc='Computer Vision'),

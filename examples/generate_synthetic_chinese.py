@@ -1,14 +1,15 @@
 import asyncio
 from huggingface_hub import hf_hub_download
 from anyclassifier.annotation.prompt import Label
+from anyclassifier.llm.llm_client import LlamaCppClient, OpenAIClient
 from anyclassifier.synthetic_data_generation import SyntheticDataGeneratorForSequenceClassification
 
 HF_HANDLE = "user_id"
 
-data_gen = SyntheticDataGeneratorForSequenceClassification(
-    llama_cpp_model_path=hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf")
-)
+llm_client = LlamaCppClient()
+# or llm_client = OpenAIClient()
 
+data_gen = SyntheticDataGeneratorForSequenceClassification(llm_client)
 
 dataset = asyncio.run(data_gen.generate(
     "Classify a Chinese text's sentiment.",

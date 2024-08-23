@@ -1,5 +1,6 @@
 from huggingface_hub import hf_hub_download
 from datasets import load_dataset
+from anyclassifier.llm.llm_client import LlamaCppClient
 from anyclassifier.schema import Label
 from anyclassifier import train_anyclassifier
 from setfit import SetFitModel
@@ -10,14 +11,18 @@ HF_HANDLE = "user_id"
 
 dataset = load_dataset("zeroshot/twitter-financial-news-sentiment")
 
+llm_client = LlamaCppClient(hf_hub_download(
+    "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"))
+# or llm_client = OpenAIClient()
+
 trainer = train_anyclassifier(
-        "Classify sentiment of finance-related tweets.",
+    "Classify sentiment of finance-related tweets.",
     [
         Label(id=0, desc='Bearish'),
         Label(id=1, desc='Bullish'),
         Label(id=2, desc='Neutral')
     ],
-    hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
+    llm_client,
     column_mapping={"text": "text"},
     model_type="setfit",
     n_record_to_generate=60,

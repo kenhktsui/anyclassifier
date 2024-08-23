@@ -1,5 +1,6 @@
 from huggingface_hub import hf_hub_download
 from datasets import load_dataset
+from anyclassifier.llm.llm_client import LlamaCppClient
 from anyclassifier.schema import Label
 from anyclassifier import train_anyclassifier
 from setfit import SetFitModel
@@ -12,15 +13,19 @@ dataset = load_dataset("fancyzhx/ag_news")
 # mock unlabeled data
 unlabeled_dataset = dataset["train"].remove_columns("label")
 
+llm_client = LlamaCppClient(hf_hub_download(
+    "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"))
+# or llm_client = OpenAIClient()
+
 trainer = train_anyclassifier(
-        "Classify a news into categories.",
+    "Classify a news into categories.",
     [
         Label(id=0, desc='World'),
         Label(id=1, desc='Sports'),
         Label(id=2, desc='Business'),
         Label(id=3, desc='Sci/Tech'),
     ],
-    hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
+    llm_client,
     unlabeled_dataset,
     column_mapping={"text": "text"},
     model_type="setfit",
