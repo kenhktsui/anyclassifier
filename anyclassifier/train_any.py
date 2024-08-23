@@ -107,12 +107,13 @@ def train_anyclassifier(
     )
     if unlabeled_dataset is not None:
         annotator = LLMAnnotator(llm_client, prompt)
-        label_dataset = annotator.annotate_dataset(
+        
+        label_dataset = asyncio.run(annotator.annotate_dataset(
             unlabeled_dataset,
             n_record=n_record_to_label,
             max_length_for_labeling=max_length_for_labeling,
             llm_concurrency=labeling_concurrency
-        )
+        ))
 
     else:
         data_generator = SyntheticDataGeneratorForSequenceClassification(llm_client)
