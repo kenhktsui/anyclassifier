@@ -6,7 +6,8 @@ import asyncio
 from pydantic import BaseModel, RootModel
 from dotenv import load_dotenv
 import logging
-from anyclassifier.llm.llm_client import LLMClient
+from tqdm import tqdm
+from anyclassifier.llm.llm_client import LLMClient, LlamaCppClient, OpenAIClient
 from anyclassifier.schema.schema import ItemList, SourceTypeList, SyntheticData, Label
 from datasets import Dataset  # it is import to load llama_cpp first before datasets to prevent error like https://github.com/abetlen/llama-cpp-python/issues/806
 
@@ -143,6 +144,12 @@ This approach ensures the diversity of synthetic data by design.
 
         data_record_list = []
 
+        tqdms = {
+            "source_type": tqdm(desc="Generating source type", total=len(labels) * n_source_type),
+            "topic": tqdm(desc="Generating topic", total=len(labels) * n_source_type * n_topic),
+            "subtopic": tqdm(desc="Generating subtopic", total=len(labels) * n_source_type * n_topic * n_subtopic),
+            "data_generation": tqdm(desc="Generating data", total=n_record_to_generate)
+        }
         # Create workers
         generationConfig = GenerationConfig(instruction=instruction,
                                             labels_str=labels_str,
@@ -154,7 +161,7 @@ This approach ensures the diversity of synthetic data by design.
 
         workers: list[asyncio.Task] = []
         for i in range(llm_concurrency):
-            task = asyncio.create_task(self.worker(f'worker-{i}', queue, generationConfig, data_record_list))
+            task = asyncio.create_task(self.worker(f'worker-{i}', queue, generationConfig, data_record_list, tqdms))
             workers.append(task)
 
         # Put initial items into queue
@@ -178,12 +185,13 @@ This approach ensures the diversity of synthetic data by design.
 
         return Dataset.from_list(data_record_list)
 
-    async def worker(self, name: str, queue: asyncio.Queue, config: GenerationConfig, data_record_list: List[dict]):
+    async def worker(self, name: str, queue: asyncio.Queue, config: GenerationConfig,
+                     data_record_list: List[dict], tqdms: dict = None):
         while True:
             try:
                 item: GenerationItem = await queue.get()
 
-                logger.info(f'[{name}] - item: {item}')
+                logger.debug(f'[{name}] - item: {item}')
                 if item.task == "source_type":
                     topics = await self.prompt_templated('expand_level1',
                                                          ItemList,
@@ -192,6 +200,8 @@ This approach ensures the diversity of synthetic data by design.
                                                          label=item.label,
                                                          source_type=item.source_type,
                                                          n=config.n_topic)
+                    if tqdms is not None:
+                        tqdms["source_type"].update(1)
                     for t in topics[:config.n_topic]:
                         await queue.put(GenerationItem(task="topic", label=item.label,
                                                        source_type=item.source_type, topic=t["item"], subtopic=None))
@@ -205,12 +215,15 @@ This approach ensures the diversity of synthetic data by design.
                                                             source_type=item.source_type,
                                                             n=config.n_subtopic,
                                                             topic=item.topic)
+                    if tqdms is not None:
+                        tqdms["topic"].update(1)
                     for st in subtopics[:config.n_subtopic]:
                         await queue.put(GenerationItem(task="subtopic",
                                                        label=item.label,
                                                        source_type=item.source_type,
                                                        topic=item.topic,
                                                        subtopic=st["item"]))
+                    
 
                 elif item.task == "subtopic":
                     data_record = await self.prompt_templated('data_generation',
@@ -221,6 +234,8 @@ This approach ensures the diversity of synthetic data by design.
                                                               source_type=item.source_type,
                                                               topic=item.subtopic,
                                                               n=config.sample_per_subtopic)
+                    if tqdms is not None:
+                        tqdms["subtopic"].update(1)
                     for d in data_record[:config.sample_per_subtopic]:
                         d['label'] = item.label
                         d['meta'] = {
@@ -229,6 +244,8 @@ This approach ensures the diversity of synthetic data by design.
                             "subtopic": item.subtopic
                         }
                         data_record_list.extend(data_record)
+                        if tqdms is not None:
+                            tqdms["data_generation"].update(1)
             except Exception as e:
                 logger.error(f'[{name}] Error: {e}')
             finally:
@@ -236,14 +253,16 @@ This approach ensures the diversity of synthetic data by design.
 
 
 if __name__ == "__main__":
-    llm_client = LLMClient(
-        "openai",
-        openai_api_key=os.environ.get("OPENAI_API_KEY"),
-        openai_proxy_url=os.getenv("OPENAI_PROXY_URL"),
-        openai_model="gpt-4o-mini",
+    llm_client = OpenAIClient(
+        api_key=os.environ.get("OPENAI_API_KEY"),
+        proxy_url=os.getenv("OPENAI_PROXY_URL"),
+        model="gpt-4o-mini",
         temperature=0.3,
         max_tokens=4096,
     )
+    # llm_client = LlamaCppClient(temperature=0.3,
+    #                             max_tokens=4096)
+
     tree_constructor = SyntheticDataGeneratorForSequenceClassification(llm_client)
     dataset: Dataset = asyncio.run(tree_constructor.generate(
         "classify sentiment of movie review",
@@ -251,8 +270,8 @@ if __name__ == "__main__":
             Label(id=0, desc='negative sentiment'),
             Label(id=1, desc='positive sentiment')
         ],
-        llm_concurrency=3,
-        n_record_to_generate=120
+        llm_concurrency=1,
+        n_record_to_generate=10
     ))
     dataset.to_csv("dataset.csv")
     print(dataset)

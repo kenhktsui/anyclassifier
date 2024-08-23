@@ -1,8 +1,9 @@
 
+from abc import abstractmethod
 import json
 import logging
 import os
-from typing import List, Union
+from typing import Union
 import uuid
 
 from llama_cpp import Llama, LlamaGrammar
@@ -26,82 +27,113 @@ class LLMClient:
                        requests to the best of your ability."""
 
     def __init__(self,
-                 use_provider: str = "llama_cpp",
-                 *kwargs,
                  temperature: float = 0.3,
                  max_tokens: int = 4096,
-                 openai_model: str = "gpt-4o-mini",
-                 openai_api_key: str = os.environ.get("OPENAI_API_KEY"),
-                 openai_proxy_url: str = os.getenv("OPENAI_PROXY_URL"),
-                 llama_cpp_model_path: str = hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
-                                                             "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
-                 llama_cpp_n_gpu_layers: int = -1,
-                 llama_cpp_n_ctx: int = 4096,
                  ):
 
-        self._use_provider = use_provider
         self._temperature = temperature
         self._max_tokens = max_tokens
 
-        if self._use_provider == "llama_cpp":
-            self._llama_cpp = Llama(model_path=llama_cpp_model_path,
-                                    n_gpu_layers=llama_cpp_n_gpu_layers,
-                                    seed=42,
-                                    n_ctx=llama_cpp_n_ctx,
-                                    verbose=False,
-                                    )
-            # randomise generation for each run
-            self._llama_cpp.set_seed(-1)
-        elif self._use_provider == "openai":
-            if openai_api_key is None or openai_proxy_url is None:
-                raise ValueError("openai_api_key and openai_proxy_url must be provided for openai")
-            self._openai_model = openai_model
-            self._openai = AsyncOpenAI(api_key=openai_api_key,
-                                       http_client=DefaultAsyncHttpxClient(proxy=openai_proxy_url),
-                                       )
+    @abstractmethod
+    async def _call_llm(self, prompt: str, schema: Union[BaseModel, RootModel] = None):
+        pass
 
-    async def prompt_llm(self, prompt: str, schema: Union[BaseModel, RootModel]) -> List[dict]:
-        if self._use_provider == "llama_cpp":
-            grammar = LlamaGrammar.from_json_schema(json.dumps(schema.model_json_schema(), indent=2))
-            output = self._llama_cpp.create_chat_completion(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self.SYSTEM_PROMPT
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                max_tokens=self._max_tokens,
-                temperature=self._temperature,
-                grammar=grammar
-            )
-            response_content = output["choices"][0]["message"]["content"]
-        elif self._use_provider == "openai":
-            request_id = str(uuid.uuid4())
-            logger.debug(f'[LLM Prompt] <{request_id}> OpenAI request, prompt: {prompt}')
-            system_prompt = f"{self.SYSTEM_PROMPT}\n\nOutput a JSON array in a field named 'data', that matches" \
-                            f"the following schema:\n{json.dumps(schema.model_json_schema(), indent=2)}"
+    async def prompt_llm(self, prompt: str, schema: Union[BaseModel, RootModel] = None):
+        request_id = str(uuid.uuid4())
+        logger.debug(f'<{request_id}> LLM request, prompt: {prompt}')
 
-            output = await self._openai.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                model=self._openai_model,
-                temperature=self._temperature,
-                max_tokens=self._max_tokens
-            )
-            response_content = output.choices[0].message.content
-            logger.debug(f'[LLM Prompt] <{request_id}> OpenAI responded, response: {response_content}')
+        response_content = await self._call_llm(prompt, schema)
+        logger.debug(f'<{request_id}> LLM responded, response: {response_content}')
+        return response_content
+
+
+class LlamaCppClient(LLMClient):
+    def __init__(self,
+                 *args,
+                 model_path: str = hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
+                                                   "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
+                 n_gpu_layers: int = -1,
+                 n_ctx: int = 4096,
+                 **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._llama_cpp = Llama(model_path=model_path,
+                                n_gpu_layers=n_gpu_layers,
+                                seed=42,
+                                n_ctx=n_ctx,
+                                verbose=False,
+                                )
+        # randomise generation for each run
+        self._llama_cpp.set_seed(-1)
+
+    async def _call_llm(self, prompt: str, schema: Union[BaseModel, RootModel] = None):
+        output = self._llama_cpp.create_chat_completion(
+            messages=[
+                {
+                    "role": "system",
+                    "content": self.SYSTEM_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            max_tokens=self._max_tokens,
+            temperature=self._temperature,
+            grammar=LlamaGrammar.from_json_schema(json.dumps(schema.model_json_schema(),
+                                                             indent=2)) if schema else None
+        )
+        response_content = output["choices"][0]["message"]["content"]
+        if not schema:
+            return response_content
+        try:
+            result = json.loads(response_content)
+            return result
+        except json.decoder.JSONDecodeError:
+            raise ValueError(f"Invalid response from LLM: {response_content}")
+
+
+class OpenAIClient(LLMClient):
+    def __init__(self,
+                 *args,
+                 model: str = "gpt-4o-mini",
+                 api_key: str = os.environ.get("OPENAI_API_KEY"),
+                 proxy_url: str = os.getenv("OPENAI_PROXY_URL"),
+                 **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        if api_key is None:
+            raise ValueError("openai_api_key must be provided for openai")
+
+        self._openai_model = model
+        if proxy_url:
+            self._openai = AsyncOpenAI(api_key=api_key,
+                                       http_client=DefaultAsyncHttpxClient(proxy=proxy_url))
         else:
-            raise ValueError(f"Invalid model: {self._use_provider}")
+            self._openai = AsyncOpenAI(api_key=api_key)
 
+    async def _call_llm(self, prompt: str, schema: Union[BaseModel, RootModel] = None):
+        system_prompt = self.SYSTEM_PROMPT
+        if schema:
+            system_prompt += f"Output a JSON array in a field named 'data', that matches" \
+                f"the following schema:\n{json.dumps(schema.model_json_schema(), indent=2)}"
+
+        output = await self._openai.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"} if schema else None,
+            model=self._openai_model,
+            temperature=self._temperature,
+            max_tokens=self._max_tokens
+        )
+        response_content = output.choices[0].message.content
+        if not schema:
+            return response_content
         try:
             result = json.loads(response_content)['data']
             return result
         except json.decoder.JSONDecodeError:
-            return []
+            raise ValueError(f"Invalid response from LLM: {response_content}")
