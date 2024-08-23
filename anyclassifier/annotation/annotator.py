@@ -11,7 +11,7 @@ import logging
 from anyclassifier.llm.llm_client import LLMClient, LlamaCppClient, OpenAIClient
 from anyclassifier.annotation.prompt import AnnotationPrompt
 from anyclassifier.schema.schema import Label
-from datasets import Dataset, load_dataset  # it is import to load llama_cpp first before datasets to prevent error like https://github.com/abetlen/llama-cpp-python/issues/806
+from datasets import Dataset, load_dataset  # it is important to load llama_cpp first before datasets to prevent error like https://github.com/abetlen/llama-cpp-python/issues/806
 
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='[%(asctime)s] [%(name)s] %(message)s')
@@ -112,7 +112,7 @@ if __name__ == "__main__":
         ]
     )
     annotator = LLMAnnotator(llm_client, prompt)
-    output = asyncio.run(annotator.annotate("It is one of best I ever watched."))
+    output = asyncio.run(annotator.annotate("It is one of the best I ever watched."))
     print(output)
 
     dataset = load_dataset("stanfordnlp/imdb", split="train")
