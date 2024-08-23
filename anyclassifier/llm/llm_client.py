@@ -49,9 +49,9 @@ class LLMClient:
 
 class LlamaCppClient(LLMClient):
     def __init__(self,
-                 *args,
                  model_path: str = hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
                                                    "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
+                 *args,
                  n_gpu_layers: int = -1,
                  n_ctx: int = 4096,
                  **kwargs):
