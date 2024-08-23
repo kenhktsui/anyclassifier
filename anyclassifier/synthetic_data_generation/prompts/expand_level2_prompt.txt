@@ -1,0 +1,6 @@
+I am building document classifier to {instruction} with labels {labels}.  I would like to collect collectively exhaustive subtopic under {topic} from {source_type}.
+
+<instruction>
+- Suggest {n} subtopic or keywords. 
+- Output JSON array. Each item contains key "item" 
+</instruction>
