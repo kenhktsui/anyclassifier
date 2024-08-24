@@ -35,6 +35,7 @@ def train_anyclassifier(
     metric_kwargs: Optional[Dict[str, Any]] = None,
     push_dataset_to_hub: bool = False,
     dataset_repo_id: Optional[str] = None,
+    dataset_output_path: Optional[str] = None,
     is_dataset_private: Optional[bool] = True,
 ) -> Union[FastTextTrainer, SetFitTrainer]:
     """
@@ -82,6 +83,8 @@ def train_anyclassifier(
             Whether to push dataset to huggingface hub for reuse, highly recommended to do so.
         dataset_repo_id (`str`, *optional*):
             Huggingface dataset repo id if you want to push
+        dataset_output_path (`str`, *optional*):
+            The local path to save the labeled dataset.
         is_dataset_private (`bool`, *optional*):
             Whether you want to make the dataset private
     """
@@ -111,6 +114,9 @@ def train_anyclassifier(
 
     if push_dataset_to_hub:
         label_dataset.push_to_hub(dataset_repo_id, private=is_dataset_private)
+
+    if dataset_output_path is not None:
+        label_dataset.save_to_disk(dataset_output_path)
 
     # training
     if model_type == "fasttext":
