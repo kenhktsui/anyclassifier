@@ -65,18 +65,22 @@ hf_hub_download("lmstudio-community/gemma-2-9b-it-GGUF", "gemma-2-9b-it-Q8_0.ggu
 ### One Liner For No Data
 
 ```python
+
 from huggingface_hub import hf_hub_download
-from anyclassifier import build_anyclassifier
+from anyclassifier import train_anyclassifier
+from anyclassifier.llm.llm_client import LlamaCppClient
 from anyclassifier.schema import Label
 
 # Magic One Line!
-trainer = build_anyclassifier(
+trainer = train_anyclassifier(
   "Classify a text's sentiment.",
   [
     Label(id=1, desc='positive sentiment'),
     Label(id=0, desc='negative sentiment')
   ],
-  hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf")
+  LlamaCppClient(hf_hub_download(
+    "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf" # as you like
+  ))
 )
 # Share Your Model!
 trainer.push_to_hub("user_id/any_model")
@@ -85,19 +89,22 @@ trainer.push_to_hub("user_id/any_model")
 ### One Liner For Unlabeled Data
 ```python
 from huggingface_hub import hf_hub_download
-from anyclassifier import build_anyclassifier
+from anyclassifier import train_anyclassifier
+from anyclassifier.llm.llm_client import LlamaCppClient
 from anyclassifier.schema import Label
 
 unlabeled_dataset  # a huggingface datasets.Dataset class can be from your local json/ csv, or from huggingface hub.
 
 # Magic One Line!
-trainer = build_anyclassifier(
+trainer = train_anyclassifier(
   "Classify a text's sentiment.",
   [
     Label(id=1, desc='positive sentiment'),
     Label(id=0, desc='negative sentiment')
   ],
-  hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),  # as you like
+  LlamaCppClient(hf_hub_download(
+    "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF", "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf" # as you like
+  )),
   unlabeled_dataset
 )
 # Share Your Model!
@@ -171,13 +178,33 @@ pip install -e .
 </details>
 
 ## Other Usages
+
+### Use OpenAI instead of LlamaCpp, enabling concurrency
+```python
+from anyclassifier.schema import Label
+from anyclassifier.llm.llm_client import OpenAIClient
+from anyclassifier.train_any import train_anyclassifier
+
+trainer = train_anyclassifier(
+  "Classify a text's sentiment.",
+  [
+    Label(id=1, desc='positive sentiment'),
+    Label(id=0, desc='negative sentiment')
+  ],
+  OpenAIClient(api_key="<YOUR_OPENAI_API_KEY>", model="gpt-4o-mini"),
+  generation_concurrency=10,
+  labeling_concurrency=10
+)
+```
+
 ### To Label a Dataset
 
 ```python
 from datasets import load_dataset
 from anyclassifier.annotation.prompt import AnnotationPrompt
+from anyclassifier.llm.llm_client import LlamaCppClient
 from anyclassifier.schema import Label
-from anyclassifier.annotation.annotator import LlamaCppAnnotator
+from anyclassifier.annotation.annotator import LLMAnnotator
 
 unlabeled_dataset = load_dataset("somepath")
 prompt = AnnotationPrompt(
@@ -187,7 +214,7 @@ prompt = AnnotationPrompt(
       Label(id=1, desc='positive sentiment')
   ]  
 )
-annotator = LlamaCppAnnotator(prompt)
+annotator = LLMAnnotator(LlamaCppClient(), prompt)
 label_dataset = annotator.annotate_dataset(unlabeled_dataset, n_record=1000)
 label_dataset.push_to_hub('user_id/any_data')
 ```
@@ -196,8 +223,9 @@ label_dataset.push_to_hub('user_id/any_data')
 ```python
 from anyclassifier.schema import Label
 from anyclassifier.synthetic_data_generation import SyntheticDataGeneratorForSequenceClassification
+from anyclassifier.llm.llm_client import LlamaCppClient
 
-tree_constructor = SyntheticDataGeneratorForSequenceClassification()
+tree_constructor = SyntheticDataGeneratorForSequenceClassification(LlamaCppClient())
 dataset = tree_constructor.generate(
     "Classify a text's sentiment.",
     [
