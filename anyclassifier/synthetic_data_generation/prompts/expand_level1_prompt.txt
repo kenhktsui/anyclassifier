@@ -1,0 +1,6 @@
+I am building a document classifier to {instruction} with labels {labels}. I would like to collect collectively exhaustive taxonomy or topic for the label: {label} from {source_type}.
+
+<instruction>
+- Suggest {n} taxonomies or topics to further expand on this label.
+- Output JSON array. Each item contains key "item" 
+</instruction>

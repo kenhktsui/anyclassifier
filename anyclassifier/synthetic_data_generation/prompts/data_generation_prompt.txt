@@ -1,0 +1,11 @@
+I am building document classifier to {instruction} with labels {labels}. I would like to collect samples for the label: {label}.
+
+<instruction>
+- Generate realistic examples for a classification model that will predict label {{label}}.
+- Characteristics:
+  Topic: {topic}.
+  Source type: {source_type}
+- Generate {n} example.
+- The example shall have a realistic length, and cannot be too short.
+- Output JSON array. Each item contains key "text" 
+</instruction>

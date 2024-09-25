@@ -5,12 +5,14 @@ from datasets import Dataset
 from huggingface_hub import interpreter_login
 from setfit import SetFitModel, TrainingArguments, Trainer as SetFitTrainer
 from anyclassifier.annotation.prompt import Label, AnnotationPrompt, Example
-from anyclassifier.annotation.annotator import LlamaCppAnnotator
+from anyclassifier.annotation.annotator import LLMAnnotator
+from anyclassifier.llm.llm_client import LLMClient
 from anyclassifier.fasttext_wrapper import (
     FastTextConfig, FastTextTrainer, FastTextForSequenceClassification, FastTextTrainingArguments
 )
 from anyclassifier.synthetic_data_generation import SyntheticDataGeneratorForSequenceClassification
 import torch
+import asyncio
 
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -19,7 +21,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 def train_anyclassifier(
     instruction: str,
     labels: List[Label],
-    llm_model_path: str,
+    llm_client: LLMClient,
     unlabeled_dataset: Optional[Dataset] = None,
     column_mapping: Dict[str, str] = {"text": "text"},
     model_type: Literal["setfit", "fasttext", "transformers"] = "setfit",
@@ -37,6 +39,8 @@ def train_anyclassifier(
     dataset_repo_id: Optional[str] = None,
     dataset_output_path: Optional[str] = None,
     is_dataset_private: Optional[bool] = True,
+    generation_concurrency: int = 1,
+    labeling_concurrency: int = 1,
 ) -> Union[FastTextTrainer, SetFitTrainer]:
     """
     Train any classifier without labelled data.
@@ -47,6 +51,8 @@ def train_anyclassifier(
             The labels including name and desc you want to classify
         llm_model_path (`str`):
             The path of LLM annotator/ generator model to be used by llama.cpp
+        llm_client (`LLMClient`):
+            OpenAIClient or LlamaCppClient to be used for synthetic data generation and labeling
         unlabeled_dataset ('Dataset'):
             The unlabeled dataset you want to label.
         column_mapping (`Dict[str, str]`, *optional*):
@@ -87,6 +93,10 @@ def train_anyclassifier(
             The local path to save the labeled dataset.
         is_dataset_private (`bool`, *optional*):
             Whether you want to make the dataset private
+        generation_concurrency (`int`, *optional*):
+            The concurrency of querying llm for synthetic data generation
+        labeling_concurrency (`int`, *optional*):
+            The concurrency of querying llm for labeling
     """
     if push_dataset_to_hub:
         interpreter_login(new_session=False)
@@ -99,16 +109,21 @@ def train_anyclassifier(
         few_shot_examples=few_shot_examples
     )
     if unlabeled_dataset is not None:
-        annotator = LlamaCppAnnotator(prompt, llm_model_path)
-        label_dataset = annotator.annotate_dataset(
+        annotator = LLMAnnotator(llm_client, prompt)
+        
+        label_dataset = asyncio.run(annotator.annotate_dataset(
             unlabeled_dataset,
             n_record=n_record_to_label,
-            max_length_for_labeling=max_length_for_labeling
-        )
+            max_length_for_labeling=max_length_for_labeling,
+            llm_concurrency=labeling_concurrency
+        ))
 
     else:
-        data_generator = SyntheticDataGeneratorForSequenceClassification(llm_model_path)
-        label_dataset = data_generator.generate(instruction, labels, n_record_to_generate=n_record_to_generate)
+        data_generator = SyntheticDataGeneratorForSequenceClassification(llm_client)
+        label_dataset = asyncio.run(data_generator.generate(instruction,
+                                                            labels,
+                                                            n_record_to_generate=n_record_to_generate,
+                                                            llm_concurrency=generation_concurrency))
 
     label_dataset = label_dataset.train_test_split(test_size=test_size)
 

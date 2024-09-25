@@ -1,53 +1,39 @@
-from typing import List, Union, Optional
+from dataclasses import dataclass
+from typing import List, Optional, Union
 from abc import abstractmethod, ABCMeta
-import json
-from tqdm import tqdm
+import os
+import asyncio
 from pydantic import BaseModel, RootModel
-from huggingface_hub import hf_hub_download
-from datasets import Dataset
-from llama_cpp import Llama, LlamaGrammar
+from dotenv import load_dotenv
+import logging
+from tqdm import tqdm
+from anyclassifier.llm.llm_client import LLMClient, LlamaCppClient, OpenAIClient
 from anyclassifier.schema.schema import ItemList, SourceTypeList, SyntheticData, Label
+from datasets import Dataset  # it is import to load llama_cpp first before datasets to prevent error like https://github.com/abetlen/llama-cpp-python/issues/806
+
+load_dotenv()
+
+# Suppress info log from httpx
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+# logger.basicConfig(stream=sys.stdout, level=logger.DEBUG, format='[%(asctime)s] [%(name)s] %(message)s')
+logger = logging.getLogger(__name__)
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter('[%(asctime)s] [%(name)s] %(message)s'))
+logger.addHandler(console_handler)
+logger.setLevel(logging.INFO)
 
 
 class SyntheticDataGeneratorBase(metaclass=ABCMeta):
-    SYSTEM_PROMPT = """You are a helpful, smart, kind, and efficient AI assistant. You always fulfill the user's requests to the best of your ability."""
 
-    def __init__(self,
-                 model_path: str = hf_hub_download("lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
-                                                   "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf"),
-                 n_gpu_layers: int = -1,
-                 n_ctx: int = 4096
-                 ):
-        self._llm = Llama(model_path=model_path,
-                          n_gpu_layers=n_gpu_layers,
-                          seed=42,
-                          n_ctx=n_ctx,
-                          verbose=False,
-                          )
-        # randomise generation for each run
-        self._llm.set_seed(-1)
+    def __init__(self, llm_client: LLMClient):
+        self._llm_client = llm_client
 
-    def prompt_llm(self, prompt: str, schema: Union[BaseModel, RootModel]) -> List[dict]:
-        grammar = LlamaGrammar.from_json_schema(json.dumps(schema.model_json_schema()))
-        output = self._llm.create_chat_completion(
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.SYSTEM_PROMPT
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            max_tokens=4096,
-            temperature=0.3,
-            grammar=grammar
-        )
-        try:
-            return json.loads(output["choices"][0]["message"]["content"])
-        except json.decoder.JSONDecodeError:
-            return []
+    async def prompt_templated(self, template: str, schema: Union[BaseModel, RootModel], **kwargs) -> str:
+        with open(os.path.join(os.path.dirname(__file__), 'prompts', f'{template}_prompt.txt'), 'r') as file:
+            prompt_template = file.read()
+        prompt = prompt_template.format(**kwargs)
+        return await self._llm_client.prompt_llm(prompt, schema)
 
     @abstractmethod
     def generate(self,
@@ -56,6 +42,25 @@ class SyntheticDataGeneratorBase(metaclass=ABCMeta):
                  n_record_to_generate=100,
                  **kwargs) -> Dataset:
         pass
+
+
+@dataclass
+class GenerationItem:
+    task: str
+    label: str
+    source_type: str
+    topic: Optional[str]
+    subtopic: Optional[str]
+
+
+@dataclass
+class GenerationConfig:
+    instruction: str
+    labels_str: str
+    labels: List[Label]
+    n_topic: int
+    n_subtopic: int
+    sample_per_subtopic: int
 
 
 class SyntheticDataGeneratorForSequenceClassification(SyntheticDataGeneratorBase):
@@ -72,43 +77,15 @@ Each data synthesis is grounded on (instruction, label, subtopic, source_type).
 This approach ensures the diversity of synthetic data by design.
     """
 
-    SOURCE_TYPE_PROMPT = f"""I am building a document classifier to {{instruction}} with labels {{labels}}. Suggest {{n}} source type of information for efficient data acquisition.
-Output JSON array. Each item contains key "source_type"."""
-
-    EXPAND_LEVEL1_PROMPT = f"""I am building a document classifier to {{instruction}} with labels {{labels}}. I would like to collect collectively exhaustive taxonomy or topic for the label: {{label}} from {{source_type}}.
-
-<instruction>
-- Suggest {{n}} taxonomies or topics to further expand on this label.
-- Output JSON array. Each item contains key "item" 
-</instruction>"""
-
-    EXPAND_LEVEL2_PROMPT = f"""I am building document classifier to {{instruction}} with labels {{labels}}.  I would like to collect collectively exhaustive subtopic under {{topic}} from {{source_type}}.
-
-<instruction>
-- Suggest {{n}} subtopic or keywords. 
-- Output JSON array. Each item contains key "item" 
-</instruction>"""
-
-    DATA_GENERATION_PROMPT = f""""I am building document classifier to {{instruction}} with labels {{labels}}. I would like to collect samples for the label: {{label}}.
-
-<instruction>
-- Generate realistic examples for a classification model that will predict label {{label}}.
-- Characteristics:
-  Topic: {{topic}}.
-  Source type: {{source_type}}
-- Generate {{n}} example.
-- The example shall have a realistic length, and cannot be too short.
-- Output JSON array. Each item contains key "text" 
-</instruction>"""
-
-    def generate(self,
-                 instruction: str,
-                 labels: List[Label],
-                 n_record_to_generate: Optional[int] = 100,
-                 n_source_type: Optional[int] = None,
-                 n_topic: Optional[int] = None,
-                 n_subtopic: Optional[int] = None,
-                 sample_per_subtopic: Optional[int] = None) -> Dataset:
+    async def generate(self,
+                       instruction: str,
+                       labels: List[Label],
+                       n_record_to_generate: Optional[int] = 100,
+                       n_source_type: Optional[int] = None,
+                       n_topic: Optional[int] = None,
+                       n_subtopic: Optional[int] = None,
+                       llm_concurrency: Optional[int] = 10,
+                       sample_per_subtopic: Optional[int] = None) -> Dataset:
         """
         Args:
             instruction (`str`):
@@ -124,6 +101,9 @@ Output JSON array. Each item contains key "source_type"."""
 
             n_subtopic (`int`, *optional*):
 
+            llm_concurrency (`int`, *optional*):
+                Number of concurrent LLM calls to make
+
             sample_per_subtopic (`int`, *optional*):
 
         Returns:
@@ -132,7 +112,7 @@ Output JSON array. Each item contains key "source_type"."""
 
         if (n_record_to_generate is not None and n_source_type is None
                 and n_topic is None and n_subtopic is None and sample_per_subtopic is None):
-            n_record_to_label_per_label = n_record_to_generate // len(labels)
+            n_record_to_label_per_label = n_record_to_generate // len(labels)  # 50
             n_topic = 5
             n_source_type = 3
             n_subtopic = 2
@@ -152,53 +132,146 @@ Output JSON array. Each item contains key "source_type"."""
         if instruction.endswith("."):
             instruction = instruction[:-1]
 
-        source_prompt = self.SOURCE_TYPE_PROMPT.format(instruction=instruction, labels=labels_str, n=n_source_type)
-        source_type_list = self.prompt_llm(source_prompt, SourceTypeList)[:n_source_type]
+        # Generating initial source type list
+        source_type_list = await self.prompt_templated('source_type',
+                                                       SourceTypeList,
+                                                       instruction=instruction,
+                                                       labels=labels_str,
+                                                       n=n_source_type)
+
+        # Start concurrent generation with async queue
+        queue = asyncio.Queue()
 
         data_record_list = []
+
+        tqdms = {
+            "source_type": tqdm(desc="Generating source type", total=len(labels) * n_source_type),
+            "topic": tqdm(desc="Generating topic", total=len(labels) * n_source_type * n_topic),
+            "subtopic": tqdm(desc="Generating subtopic", total=len(labels) * n_source_type * n_topic * n_subtopic),
+            "data_generation": tqdm(desc="Generating data", total=n_record_to_generate)
+        }
+        # Create workers
+        generationConfig = GenerationConfig(instruction=instruction,
+                                            labels_str=labels_str,
+                                            labels=labels,
+                                            n_topic=n_topic,
+                                            n_subtopic=n_subtopic,
+                                            sample_per_subtopic=sample_per_subtopic)
+        logger.info(f'generationConfig: {generationConfig}')
+
+        workers: list[asyncio.Task] = []
+        for i in range(llm_concurrency):
+            task = asyncio.create_task(self.worker(f'worker-{i}', queue, generationConfig, data_record_list, tqdms))
+            workers.append(task)
+
+        # Put initial items into queue
         for label in labels:
-            for s in tqdm(source_type_list, desc="source_type"):
-                topics = self.prompt_llm(self.EXPAND_LEVEL1_PROMPT.format(instruction=instruction,
-                                                                          labels=labels_str,
-                                                                          label=label.desc,
-                                                                          source_type=s["source_type"],
-                                                                          n=n_topic),
-                                         ItemList)[:n_topic]
-                for t in tqdm(topics, desc="topic"):
-                    subtopics = self.prompt_llm(self.EXPAND_LEVEL2_PROMPT.format(instruction=instruction,
-                                                                                 labels=labels_str,
-                                                                                 label=label.desc,
-                                                                                 source_type=s["source_type"],
-                                                                                 n=n_subtopic,
-                                                                                 topic=t["item"]),
-                                                ItemList)[:n_subtopic]
-                    for st in subtopics:
-                        data_record = self.prompt_llm(self.DATA_GENERATION_PROMPT.format(instruction=instruction,
-                                                                                         labels=labels_str,
-                                                                                         label=label.desc,
-                                                                                         topic=st["item"],
-                                                                                         source_type=s["source_type"],
-                                                                                         n=sample_per_subtopic),
-                                                      SyntheticData)[:sample_per_subtopic]
-                        for d in data_record:
-                            d['label'] = label.id
-                            d['meta'] = {
-                                "source_type": s["source_type"],
-                                "topic": t["item"],
-                                "subtopic": st["item"]
-                            }
-                            print(d)
-                            data_record_list.extend(data_record)
+            for source_type in source_type_list:
+                await queue.put(GenerationItem(task="source_type",
+                                               label=label.desc,
+                                               source_type=source_type['source_type'],
+                                               topic=None,
+                                               subtopic=None))
+
+        # Wait for all tasks to be completed
+        await queue.join()
+
+        # Cancel worker tasks
+        for task in workers:
+            task.cancel()
+
+        # Wait for all workers to finish
+        await asyncio.gather(*workers, return_exceptions=True)
 
         return Dataset.from_list(data_record_list)
 
+    async def worker(self, name: str, queue: asyncio.Queue, config: GenerationConfig,
+                     data_record_list: List[dict], tqdms: dict = None):
+        while True:
+            try:
+                item: GenerationItem = await queue.get()
+
+                logger.debug(f'[{name}] - item: {item}')
+                if item.task == "source_type":
+                    topics = await self.prompt_templated('expand_level1',
+                                                         ItemList,
+                                                         instruction=config.instruction,
+                                                         labels=config.labels_str,
+                                                         label=item.label,
+                                                         source_type=item.source_type,
+                                                         n=config.n_topic)
+                    if tqdms is not None:
+                        tqdms["source_type"].update(1)
+                    for t in topics[:config.n_topic]:
+                        await queue.put(GenerationItem(task="topic", label=item.label,
+                                                       source_type=item.source_type, topic=t["item"], subtopic=None))
+
+                elif item.task == "topic":
+                    subtopics = await self.prompt_templated('expand_level2',
+                                                            ItemList,
+                                                            instruction=config.instruction,
+                                                            labels=config.labels_str,
+                                                            label=item.label,
+                                                            source_type=item.source_type,
+                                                            n=config.n_subtopic,
+                                                            topic=item.topic)
+                    if tqdms is not None:
+                        tqdms["topic"].update(1)
+                    for st in subtopics[:config.n_subtopic]:
+                        await queue.put(GenerationItem(task="subtopic",
+                                                       label=item.label,
+                                                       source_type=item.source_type,
+                                                       topic=item.topic,
+                                                       subtopic=st["item"]))
+                    
+
+                elif item.task == "subtopic":
+                    data_record = await self.prompt_templated('data_generation',
+                                                              SyntheticData,
+                                                              instruction=config.instruction,
+                                                              labels=config.labels_str,
+                                                              label=item.label,
+                                                              source_type=item.source_type,
+                                                              topic=item.subtopic,
+                                                              n=config.sample_per_subtopic)
+                    if tqdms is not None:
+                        tqdms["subtopic"].update(1)
+                    for d in data_record[:config.sample_per_subtopic]:
+                        d['label'] = item.label
+                        d['meta'] = {
+                            "source_type": item.source_type,
+                            "topic": item.topic,
+                            "subtopic": item.subtopic
+                        }
+                        data_record_list.extend(data_record)
+                        if tqdms is not None:
+                            tqdms["data_generation"].update(1)
+            except Exception as e:
+                logger.error(f'[{name}] Error: {e}')
+            finally:
+                queue.task_done()
+
 
 if __name__ == "__main__":
-    tree_constructor = SyntheticDataGeneratorForSequenceClassification()
-    tree_constructor.generate(
+    llm_client = OpenAIClient(
+        api_key=os.environ.get("OPENAI_API_KEY"),
+        proxy_url=os.getenv("OPENAI_PROXY_URL"),
+        model="gpt-4o-mini",
+        temperature=0.3,
+        max_tokens=4096,
+    )
+    # llm_client = LlamaCppClient(temperature=0.3,
+    #                             max_tokens=4096)
+
+    tree_constructor = SyntheticDataGeneratorForSequenceClassification(llm_client)
+    dataset: Dataset = asyncio.run(tree_constructor.generate(
         "classify sentiment of movie review",
         [
             Label(id=0, desc='negative sentiment'),
             Label(id=1, desc='positive sentiment')
-        ]
-    )
+        ],
+        llm_concurrency=1,
+        n_record_to_generate=10
+    ))
+    dataset.to_csv("dataset.csv")
+    print(dataset)

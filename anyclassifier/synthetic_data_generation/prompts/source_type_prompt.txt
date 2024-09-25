@@ -1,0 +1,2 @@
+I am building a document classifier to {instruction} with labels {labels}. Suggest {n} source type of information for efficient data acquisition.
+Output JSON array. Each item contains key "source_type".
